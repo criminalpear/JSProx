@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+  <title>UV Console Proxy</title>
+  <link rel="stylesheet" href="index.css" />
+  <script src="baremux/index.js"></script>
+  <script src="uv/uv.bundle.js"></script>
+  <script src="uv/uv.config.js"></script>
+</head>
+<body>
+  <div id="topbar">
+    <button id="home" title="Home">⌂</button>
+    <button id="back" title="Reload proxied page">⟳</button>
+    <form id="uv-form">
+      <input id="uv-search-engine" value="https://www.google.com/search?q=%s" type="hidden" />
+      <input id="uv-address" type="text" spellcheck="false"
+             placeholder="Enter a URL or search — e.g. github.com" autofocus />
+    </form>
+    <button id="go">Go</button>
+    <span id="uv-status"></span>
+  </div>
+
+  <div id="stage">
+    <div id="welcome">
+      <h1>UV Console Proxy</h1>
+      <p>Type a site above and press <b>Go</b>. Pages load through Ultraviolet, and a
+         floating JS console is injected into each one — toggle it with
+         <b>Ctrl</b>+<b>`</b> or the <b>&gt;_</b> button.</p>
+      <p class="dim" id="uv-error"></p>
+      <pre class="dim" id="uv-error-code"></pre>
+    </div>
+    <iframe id="uv-frame" title="Proxied page"></iframe>
+  </div>
+
+  <script src="register-sw.js"></script>
+  <script src="search.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "js-console-proxy",
+  "version": "1.0.0",
+  "description": "A web proxy that injects a floating JavaScript console into every page it serves.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "unblocker": "^2.2.4"
+  }
+}
