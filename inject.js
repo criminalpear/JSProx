@@ -44,7 +44,7 @@
     '<style>' + css + '</style>' +
     '<button class="btn" title="Toggle console (Ctrl+`)">&gt;_</button>' +
     '<div class="panel">' +
-      '<div class="head"><b>JS Console</b>' +
+      '<div class="head"><b>JSProx Console</b>' +
         '<span class="hint">Enter run · Shift+Enter newline · ↑/↓ history</span>' +
         '<button class="clr">Clear</button></div>' +
       '<div class="out"></div>' +

@@ -1,5 +1,5 @@
 {
-  "name": "js-console-proxy",
+  "name": "jsprox",
   "version": "1.0.0",
   "description": "A web proxy that injects a floating JavaScript console into every page it serves.",
   "main": "server.js",

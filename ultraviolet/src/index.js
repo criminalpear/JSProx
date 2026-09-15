@@ -3,22 +3,31 @@ import { dirname, join } from "node:path";
 import { hostname } from "node:os";
 import { createServer } from "node:http";
 import express from "express";
-import wisp from "wisp-server-node";
+import compression from "compression";
+import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
 import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
+import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
+
+import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const publicPath = join(__dirname, "..", "public");
 
 const app = express();
+app.disable("x-powered-by");
+app.use(compression());
+app.get("/health", (req, res) => res.set("Cache-Control", "no-store").json({ ok: true, name: "JSProx" }));
 
 // Our own public files first so our uv.config.js / sw.js win over the vendor copies.
-app.use(express.static(publicPath));
+app.use(express.static(publicPath, { maxAge: 0 }));
 // Vendor bundles.
+app.use("/scram/", express.static(scramjetPath));
 app.use("/uv/", express.static(uvPath));
 app.use("/epoxy/", express.static(epoxyPath));
+app.use("/libcurl/", express.static(libcurlPath));
 app.use("/baremux/", express.static(baremuxPath));
 
 app.use((req, res) => {
@@ -35,7 +44,7 @@ server.on("request", (req, res) => {
 });
 
 server.on("upgrade", (req, socket, head) => {
-  if (req.url.endsWith("/wisp/")) {
+  if (new URL(req.url, "http://localhost").pathname === "/wisp/") {
     wisp.routeRequest(req, socket, head);
   } else {
     socket.end();
@@ -47,7 +56,7 @@ if (isNaN(port)) port = 8080;
 
 server.on("listening", () => {
   const address = server.address();
-  console.log("UV Console Proxy listening on:");
+  console.log("JSProx listening on:");
   console.log(`\thttp://localhost:${address.port}`);
   console.log(`\thttp://${hostname()}:${address.port}`);
 });

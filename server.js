@@ -54,7 +54,7 @@ app.get('/', (req, res) => {
   res.type('html').send(`<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JS Console Proxy</title>
+<title>JSProx</title>
 <style>
   body { background:#1e1e1e; color:#d4d4d4; font-family:Consolas,monospace;
          display:flex; min-height:100vh; margin:0; align-items:center; justify-content:center; }
@@ -71,7 +71,7 @@ app.get('/', (req, res) => {
   code { color:#b5cea8; }
 </style></head><body>
 <div class="box">
-  <h1>JS Console Proxy</h1>
+  <h1>JSProx</h1>
   <p>Enter a site to load it through this proxy. A floating console is injected into
      every page — toggle it with <code>Ctrl</code>+<code>\`</code> (backtick) and run JS in
      the real page's context.</p>
@@ -91,6 +91,6 @@ const server = http.createServer(app);
 server.on('upgrade', unblocker.onUpgrade);
 
 server.listen(PORT, () => {
-  console.log(`JS Console Proxy running:  http://localhost:${PORT}`);
+  console.log(`JSProx running:  http://localhost:${PORT}`);
   console.log(`Proxy a site directly:     http://localhost:${PORT}${PREFIX}https://example.com`);
 });

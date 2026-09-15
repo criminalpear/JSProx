@@ -1,0 +1,65 @@
+const { chromium } = require('playwright');
+const { spawn } = require('node:child_process');
+const { once } = require('node:events');
+const path = require('node:path');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const root=path.resolve(__dirname,'..');
+const port=process.env.TEST_PORT || '8092';
+const origin=`http://localhost:${port}`;
+let server, browser;
+async function start(){
+ server=spawn(process.execPath,['src/index.js'],{cwd:root,env:{...process.env,PORT:port},stdio:['ignore','pipe','pipe'],windowsHide:true});
+ let logs='';server.stdout.on('data',d=>logs+=d);server.stderr.on('data',d=>logs+=d);
+ for(let i=0;i<100;i++){if(server.exitCode!==null)throw Error('Test server exited: '+logs);try{if((await fetch(origin+'/health')).ok)return;}catch{}await new Promise(r=>setTimeout(r,100));}
+ throw Error('Server did not start: '+logs);
+}
+async function stop(){if(server&&server.exitCode===null){const exited=once(server,'exit');server.kill();await exited;}}
+async function visit(page,url){const loaded=await page.locator('body').evaluate(e=>e.classList.contains('loaded'));await page.fill(loaded?'#uv-address':'#home-address',url);await page.locator(loaded?'#uv-form':'#home-search').evaluate(f=>f.requestSubmit());}
+async function example(page){await page.frameLocator('#uv-frame').getByRole('heading',{name:'Example Domain'}).waitFor({timeout:45000});await page.waitForFunction(()=>!busy);}
+async function settings(page,changes){await page.click('#settings-open');for(const [key,value]of Object.entries(changes)){const field=page.locator(`#settings-form [name="${key}"]`);if(typeof value==='boolean')await field.setChecked(value);else if(await field.evaluate(e=>e.tagName==='SELECT'))await field.selectOption(value);else await field.fill(value);}await page.locator('#settings-form button[type=submit]').click();}
+(async()=>{
+ await start();browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1440,height:1000}});const page=await context.newPage();const pageErrors=[];page.on('pageerror',e=>pageErrors.push(e.message));
+ await page.goto(origin);await page.locator('.search-home').waitFor();
+ assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');await page.screenshot({path:path.join(__dirname,'home.png')});await page.click('#sidebar-toggle');assert.equal(await page.locator('#sidebar').isVisible(),false);await page.reload();assert.equal(await page.locator('#sidebar').isVisible(),false);await page.click('#sidebar-toggle');assert.equal(await page.locator('#sidebar').isVisible(),true);console.log('PASS dark default and persistent sidebar toggle');
+ await visit(page,'javascript:alert(1)');assert.match(await page.locator('#uv-status').textContent(),/Only HTTP/);assert.equal(await page.locator('body').evaluate(e=>e.classList.contains('loaded')),false);
+ console.log('PASS unsafe URL is rejected before navigation');
+ await page.click('#diagnostics-open');assert.match(await page.locator('#connection-details').textContent(),/Preferred transport/);const reportDownload=page.waitForEvent('download');await page.click('#export-diagnostics');assert.equal((await reportDownload).suggestedFilename(),'jsprox-connection-report.json');assert.equal(await page.evaluate(()=>Object.hasOwn(connectionReport(),'cookies')),false);await page.click('[data-close=diagnostics-dialog]');console.log('PASS connection details and diagnostic export');
+ await settings(page,{theme:'dark',tabTitle:'My workspace',rememberHistory:true});await page.reload();assert.equal(await page.title(),'My workspace');assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
+ const wallpaper=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=400;c.height=300;const ctx=c.getContext('2d');ctx.fillStyle='#ab3060';ctx.fillRect(0,0,400,300);ctx.fillStyle='#496eb5';ctx.fillRect(200,0,200,300);return c.toDataURL();});await page.click('#settings-open');await page.locator('#wallpaper-file').setInputFiles({name:'test.png',mimeType:'image/png',buffer:Buffer.from(wallpaper.split(',')[1],'base64')});await page.waitForFunction(()=>draftWallpaper.startsWith('data:image/'));await page.locator('#settings-form button[type=submit]').click();await page.reload();assert.match(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--wallpaper')),/data:image/);assert.match(await page.locator('#home-background').evaluate(e=>getComputedStyle(e).backgroundImage),/data:image/);assert.equal(await page.locator('#home-background').isVisible(),true);await page.screenshot({path:path.join(__dirname,'background.png')});
+ await page.click('#settings-open');const downloadPromise=page.waitForEvent('download');await page.click('#export-settings');const download=await downloadPromise;assert.equal(download.suggestedFilename(),'jsprox-preferences.json');await page.click('[data-close=settings]');
+ await page.click('#add-shortcut');await page.locator('#shortcut-form [name=name]').fill('Example');await page.locator('#shortcut-form [name=url]').fill('example.com');await page.locator('#shortcut-form button[type=submit]').click();assert.equal(await page.locator('.shortcut-text b').last().textContent(),'Example');
+ console.log('PASS preferences, image upload persistence, export, shortcuts');
+ await visit(page,'https://example.com');await example(page);console.log('PASS Scramjet + Libcurl navigation');
+ await page.frames()[1].evaluate(()=>{const f=document.createElement('iframe');f.id='nested-game-test';f.src='https://example.com/';document.body.append(f);});await page.frameLocator('#uv-frame').frameLocator('#nested-game-test').getByRole('heading',{name:'Example Domain'}).waitFor();assert.equal(await page.frameLocator('#uv-frame').frameLocator('#nested-game-test').locator('.btn').count(),0);assert.equal(await page.frameLocator('#uv-frame').locator('.btn').count(),1);const serialized=await page.frames()[1].evaluate(()=>{let calls=0;console.log({toJSON(){calls++;return 'noisy';}});return calls;});assert.equal(serialized,0);await page.frames()[1].evaluate(()=>document.getElementById('nested-game-test').remove());console.log('PASS one console across nested frames and no closed-console serialization');
+ await page.click('#bookmark-add');await page.locator('#bookmark-editor-form [name=name]').fill('Test action');await page.locator('#bookmark-editor-form [name=url]').fill('javascript:document.body.dataset.bookmarkTest="ran"');await page.locator('#bookmark-editor-form button[type=submit]').click();await page.locator('#bookmark-bar-items').getByText('Test action',{exact:false}).click();assert.equal(await page.frames()[1].evaluate(()=>document.body.dataset.bookmarkTest),'ran');await page.click('#bookmark-bar-toggle');assert.equal(await page.locator('#bookmark-bar-items').isVisible(),false);await page.reload();assert.equal(await page.locator('#bookmark-bar-toggle').getAttribute('aria-expanded'),'false');await page.click('#bookmark-bar-toggle');await visit(page,'https://example.com');await example(page);assert.ok(await page.locator('#bookmark-bar-items').getByText('Test action',{exact:false}).count());await page.locator('#bookmark-bar-items').getByText('Ad cleanup',{exact:false}).click();assert.equal(await page.frames()[1].evaluate(()=>!!document.getElementById('jsprox-ad-cleanup')),true);console.log('PASS bookmarklets execute in target page, persist, and bar hides');
+ const proxy=page.frameLocator('#uv-frame');await proxy.locator('.btn').click();assert.equal(await proxy.locator('.btn').getAttribute('aria-expanded'),'true');await proxy.locator('.close').click();assert.equal(await proxy.locator('.btn').getAttribute('aria-expanded'),'false');await proxy.locator('.btn').click();
+ async function run(code){await proxy.locator('textarea').fill(code);await proxy.locator('.run').click();}
+ await run('var jsproxPersistent = 41; jsproxPersistent + 1');await proxy.locator('.out').getByText('42',{exact:true}).waitFor();
+ await run('javascript:({then(resolve){resolve(99)}})');await proxy.locator('.out').getByText('99',{exact:true}).waitFor();
+ await run('var circ={big:123n};circ.self=circ;circ');await proxy.locator('.out').getByText(/\[Circular\]/).last().waitFor();
+ await run('window.runs=(window.runs||0)+1;throw Error("once")');assert.equal(await page.frames()[1].evaluate(()=>window.runs),1);
+ await proxy.locator('.async').check();await run('await Promise.resolve();return 77');await proxy.locator('.out').getByText('77',{exact:true}).waitFor();await proxy.locator('.async').uncheck();
+ await run('for(var i=0;i<650;i++)console.log(i)');assert.ok(await proxy.locator('.out .line').count()<=500);
+ await run('console.warn("filter-warning");console.error("filter-error")');await proxy.locator('.filter').selectOption('error');assert.equal(await proxy.locator('.warn').last().isVisible(),false);assert.equal(await proxy.locator('.error').last().isVisible(),true);await proxy.locator('.filter').selectOption('');console.log('PASS console execution, log cap, launcher, close button and log filter');
+ await page.click('#bookmark');await page.click('#home');await page.click('#bookmarks-nav');assert.match(await page.locator('#bookmarks-list').textContent(),/example.com/);await page.click('[data-close=bookmarks-dialog]');
+ await visit(page,'https://example.com');await example(page);
+ // Inject a deterministic dead connection through the real shared worker API.
+ await page.evaluate(async()=>{window.failureReports=0;navigator.serviceWorker.addEventListener('message',e=>{if(e.data?.type==='jsprox:connection-error')window.failureReports++;});await connection.setManualTransport('return [class { ready=true; async request() { throw new Error("Wisp: MuxTaskEnded (Multiplexor task ended)"); } }, "broken-test"];',[]);});
+ await visit(page,'https://example.com/?recovery=1');await page.waitForFunction(()=>window.failureReports>0,{},{timeout:15000});await example(page);assert.equal(await page.evaluate(()=>window.failureReports),1);assert.equal(await page.evaluate(()=>retryUsed),true);
+ console.log('PASS dead transport triggers one GET recovery and successful reload');
+ // Non-GET failures must stay visible and must not resubmit a form.
+ await page.evaluate(()=>{retryUsed=false;window.beforeTransport=transportKey;navigator.serviceWorker.dispatchEvent(new MessageEvent('message',{data:{type:'jsprox:connection-error',url:currentProxy,method:'POST'}}));});
+ assert.match(await page.locator('#uv-status').textContent(),/not retried automatically/);assert.equal(await page.evaluate(()=>recovering),false);console.log('PASS POST failure does not auto-retry');
+ // Real server restart closes the WebSocket while the page/shared worker stay alive.
+ await stop();await start();await page.click('#reconnect');await page.waitForFunction(()=>!recovering&&!busy);await example(page);console.log('PASS reconnect after actual server restart');
+ await settings(page,{engine:'uv',transport:'epoxy'});await visit(page,'https://example.com');await example(page);console.log('PASS UV + Epoxy fallback');
+ await page.locator('#bookmark-bar-items').getByText('Test action',{exact:false}).click();assert.equal(await page.frames()[1].evaluate(()=>document.body.dataset.bookmarkTest),'ran');console.log('PASS bookmarklet in UV engine');
+ await page.click('#home');await settings(page,{theme:'light',engine:'scramjet',transport:'libcurl',tabTitle:'JSProx'});
+ await page.click('#cloak-open');const popupPromise=context.waitForEvent('page');await page.click('#blank');const popup=await popupPromise;await popup.frameLocator('iframe').locator('#home-address').waitFor();assert.equal(popup.url(),'about:blank');const embedded=popup.frameLocator('iframe');await embedded.locator('#home-address').fill('https://example.com');await embedded.locator('#home-search button').click();await embedded.frameLocator('#uv-frame').getByRole('heading',{name:'Example Domain'}).waitFor({timeout:45000});await popup.close();console.log('PASS about:blank wrapper actually proxies a page');
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(__dirname,'mobile.png')});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.click('#settings-open');await page.screenshot({path:path.join(__dirname,'settings-mobile.png')});await page.click('[data-close=settings]');console.log('PASS mobile layout and settings dialog');
+ assert.deepEqual(pageErrors,[]);console.log('PASS no uncaught app errors');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();await stop();});
+
+
+

@@ -1,97 +1,85 @@
-# JS Console Proxy
+# JSProx
 
-Load sites through your own origin and inject a floating JavaScript console into every
-page, so you can run JS against the **real page** (its DOM, its variables) — the thing a
-normal webpage can't do across origins, and the thing a disabled-DevTools browser won't
-give you.
+A self-hosted web proxy with a customizable home dashboard and an in-page JavaScript console. Scramjet is the default engine; Ultraviolet is available as a fallback.
 
-There are **two tiers**. Both need a machine that runs Node.js (the "host"); the
-Chromebook just opens the result in a browser.
+## Run or update
 
-| | `ultraviolet/` (recommended) | root (`server.js`) |
-|---|---|---|
-| Engine | Ultraviolet (service-worker rewriting) | node-unblocker (server rewriting) |
-| Site compatibility | High — handles most runtime-built URLs, SPAs, logins | Low — static / simple-dynamic sites only |
-| Setup | `npm install` pulls a real proxy stack | tiny, single server file |
-| Use when | You want GitHub / most sites + logins to actually work | Quick test, minimal dependencies |
+Use Node.js 22 or newer:
 
-Also included: `console.html` — a standalone console that runs only in its own page (no
-proxy). Good as a plain JS scratchpad when DevTools is off.
+    cd ultraviolet
+    npm ci
+    npm start
 
----
+Open http://localhost:8080. Remote hosting needs HTTPS for service workers. After updating, reload the JSProx home page so the new app code can initialize a fresh transport. The original ultraviolet folder name is preserved for deployment compatibility. The root npm start command still runs the older node-unblocker fallback.
 
-## Tier 1 — Ultraviolet (recommended)
+## Connection recovery
 
-Much better site + login compatibility. Uses Ultraviolet + a wisp server + bare-mux/epoxy.
+Wisp MuxTaskEnded means the underlying multiplexed connection has ended. The previous app checked only which transport module was selected, so it could keep using a dead worker across server restarts.
 
-```bash
-cd ultraviolet
-npm install
-npm start
-```
+JSProx now initializes a fresh transport on the first navigation in each app session. Libcurl 1.5.0 is the default compatible transport; Epoxy 2.1.28 remains selectable in Settings. Reconnect explicitly replaces the transport without clearing cookies. This connection is shared by JSProx tabs, so other tabs may need reloading after a reset.
 
-Open the printed URL (`http://localhost:8080` locally, or the host's LAN / cloud URL).
-Type a site in the address bar, press **Go**. On any loaded page:
+A navigation response reporting a connection error can trigger one automatic retry, only for GET requests. Forms, login POSTs and background requests are never automatically replayed. A server outage, network restriction or site-specific failure may still require intervention. Reconnect reports unavailable servers and setup timeouts.
 
-- **Ctrl + `** toggles the console, or click the round **>_** button (bottom-right).
-- **Execute** button or **Enter** runs; **Shift+Enter** = newline; **↑/↓** = history.
-- Captures the page's `console.log/warn/error` and uncaught errors too.
+## Home and settings
 
-The console is injected by `public/uv/sw.js`, which appends `public/inject.js` to every
-HTML response the service worker produces.
+- Dark mode by default, with light/system themes and a contrast-adjusted accent color. The first launch of this redesign moves older preferences to dark mode; later theme choices are remembered.
+- Home background from a direct HTTP/HTTPS image link or an uploaded PNG, JPEG, WebP or GIF up to 12 MB. Images are validated, resized to at most 1920 pixels, and saved locally as a WebP still image. Linked images load through the proxy to avoid cross-origin isolation blocks. Settings includes a preview, error messages, and brightness control.
+- Editable shortcuts, bookmarks, and optional local recent destinations (off by default).
+- Scramjet/UV engine, Libcurl/Epoxy transport, and DuckDuckGo/Google/Bing/Brave search selection.
+- Optional start-page URL, custom tab title, and built-in tab icons.
+- Preference export/import and reset. Exports include preferences, shortcuts and bookmarks, not site cookies or browsing history.
+- A simple search-first home, JSP monogram logo, persistent sidebar show/hide arrow, quick theme toggle, Copy original URL, and a short Help dialog.
+- Full-page proxied browsing and a clearly labeled Cloaking menu. Choose Open cloaked tab to carry your current site into an about:blank wrapper.
 
-## Tier 2 — node-unblocker (simple fallback)
+The about:blank wrapper can keep about:blank in its tab's address bar. It cannot substitute an arbitrary website URL, hide network traffic, or guarantee that no history is recorded. Some browser configurations block popups or embedded pages; Full page remains available.
 
-```bash
-npm install
-npm start        # http://localhost:8080
-```
+## Console
 
-Enter a site on the landing page and hit **Load**. Same console controls as above.
+The hideable bookmarks bar supports website links and `javascript:` bookmarklets, with add/edit/remove and left/right ordering in Bookmarks. Right-click a bar item to edit it. Visibility and items persist locally and items are included in preference exports. Bookmarklets execute on the active proxied page only when clicked. The default Ad cleanup hides common ad containers without deleting game frames, scripts, or videos; reload to undo it. It is cosmetic cleanup, not a network ad blocker.
 
----
+Ctrl + backtick or the labeled Console pill opens the console. The panel has a close button, accessible expanded state, and All logs / Errors / Warnings filters. Enter executes; Shift+Enter inserts a line; arrow keys recall the current session's command history.
 
-## Where to host it (the GitHub Pages question)
+Only the main proxied document gets a console; nested game frames do not add extra buttons or logging hooks. Page-log capture runs only while the panel is open, avoiding hidden formatting and DOM work during games. Open-panel scrolling is batched per animation frame and filtering processes only new rows. Native browser logs still work. These changes reduce console overhead; they do not guarantee a particular game frame rate.
 
-**GitHub Pages alone can't run this.** Pages is static-only; a proxy needs a server to
-fetch cross-origin content. Your options:
+Normal mode uses global eval. The optional Await mode allows asynchronous snippets; its function scope differs from normal mode. Use an explicit return to display a result in Await mode. Bookmarklet javascript: prefixes are accepted. Import loads a local JS file into the editor without executing it; Export downloads the visible output. Output is capped at 500 rows and history at 100 commands.
 
-1. **GitHub Codespaces (easiest all-in-one).** This repo ships a `.devcontainer/` that
-   auto-installs and auto-starts the UV server. Steps:
-   - Push this folder to a GitHub repo → **Code ▸ Codespaces ▸ Create codespace**.
-   - Wait for setup: it runs `npm install` in `ultraviolet/`, then starts the server on
-     port 8080 (logs at `/tmp/uv.log`; restart manually with `cd ultraviolet && npm start`).
-   - Open the **Ports** tab, find **UV Console Proxy (8080)**, and open its
-     `https://…app.github.dev` URL — **that's the link you use on the Chromebook.**
-   - To open it on a different device (your Chromebook), right-click the port and set
-     **Port Visibility ▸ Public** (GitHub can't force this from the devcontainer file).
-2. **Any Node host** — Render / Fly.io / Replit / a VPS / your other computer. Run Tier 1,
-   open the URL it gives you.
-3. **GitHub Pages + a separate server (advanced).** You *can* put `ultraviolet/public/`
-   on Pages, but the frontend must point its wisp/transport at a Node "bare/wisp" server
-   running elsewhere (a Codespace or host), and that server needs matching CORS +
-   `Cross-Origin-Opener-Policy`/`Cross-Origin-Embedder-Policy` headers. More moving parts;
-   only worth it if you specifically want the UI on Pages. For a personal test, option 1 or 2 is simpler.
+Scripts still depend on the page, the proxy engine and browser APIs. Browser-extension and userscript-manager APIs such as chrome.* and GM_* are not supplied. No console can guarantee compatibility with every script.
 
-## Known limits (not bugs)
+## Game compatibility and connection tools
 
-- **Logins live in the proxy's session**, not your browser — you log in *as the proxy*.
-- **Hardened sites still resist.** Google login, banks, DRM video (YouTube), and anything
-  with serious anti-proxy / anti-bot defense may refuse or fail even under Ultraviolet.
-  This is them defending against exactly this technique — not a fixable bug here.
-- Ultraviolet needs cross-origin isolation (COOP/COEP) — already set in `src/index.js`.
+The supplied Icon.png is now the application logo and default tab icon. The sidebar Connection panel shows connection details, recent recovery events, reconnect and alternate-transport controls, and a downloadable report containing hostnames rather than full browsing URLs. The fullscreen game-view button uses the browser's fullscreen mode; press Escape to leave.
 
-## Files
+A scoped Scramjet compatibility fix makes CrazyGames Gameframe module imports share one runtime. Previously, differently suffixed module URLs created duplicate React instances and left games blank. Kick the Buddy was checked live and reached its rendered game screen with the character and controls. This is not a guarantee for every game or advertising SDK. Scramjet's noisy caught-exception debug logging is disabled; ordinary page errors remain available.
 
-**`ultraviolet/`**
-- `src/index.js` — Express + wisp server; serves the UV / epoxy / baremux vendor bundles and `public/`.
-- `public/index.html` · `index.css` · `index.js` — address-bar UI + iframe browser.
-- `public/uv/uv.config.js` — Ultraviolet config (paths, URL codec).
-- `public/uv/sw.js` — service worker; runs UV **and** injects the console into HTML responses.
-- `public/register-sw.js` · `search.js` — SW registration + URL/search parsing.
-- `public/inject.js` — the floating console.
+Connection error 35 (SSL handshake) and MuxTaskEnded can trigger one alternate Libcurl/Epoxy attempt for bodyless GET/HEAD requests. A successful alternate is remembered per origin for ten minutes. POST requests and certificate verification failures are not retried. Xbox's public page loaded in testing, but the intermittent handshake error was tested with controlled failures; account login and cloud streaming remain unverified.
 
-**root (Tier 2)**
-- `server.js` — Express + node-unblocker; splices the console into HTML before `</body>`.
-- `inject.js` — the floating console.
-- `console.html` — standalone in-page console, no proxy.
+The test command includes eleven focused module/transport tests alongside the browser regression suite.
+
+## Loading performance
+
+The home dashboard loads proxy-engine bundles on demand. A small Libcurl adapter waits for its WASM initialization before the first request, fixing cold-start image fetch failures without replaying requests. The server compresses eligible assets, the console caps retained output, and injection does not add a second whole-document buffer. Site speed still depends on the upstream host, the proxy host and the page itself; no universal speedup is claimed.
+
+## Validation
+
+Install development dependencies and a Playwright browser:
+
+    npm ci
+    npx playwright install chromium
+    npm test
+
+The browser suite starts its own server on port 8092 (override TEST_PORT), uses example.com for live proxy checks, and tests settings persistence, wallpaper upload, shortcuts, console behavior, forced connection failure, non-GET retry protection, reconnect after a real server restart, UV/Epoxy fallback, about:blank navigation and mobile layout. Tests need internet access. Screenshots are written into tests/.
+
+Account login, CAPTCHA acceptance, video playback and individual game compatibility need testing with those services. They are not guaranteed by these checks.
+
+## Project copies
+
+The outer project and the existing nested JSProx directory contain matching application sources and lockfiles. Install dependencies in whichever copy you run. Do not run both on the same port.
+
+## Upstream projects
+
+- https://github.com/MercuryWorkshop/scramjet
+- https://github.com/titaniumnetwork-dev/Ultraviolet
+- https://github.com/MercuryWorkshop/libcurl-transport
+- https://github.com/MercuryWorkshop/wisp-client-js
+
+Published package generations are deliberately kept compatible with bare-mux 2. Upstream development APIs and newer transport major versions may differ.
