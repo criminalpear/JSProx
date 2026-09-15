@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#143c31"><title>JSProx</title>
+<link rel="icon" href="/icon.png" type="image/png"><link rel="stylesheet" href="/index.css">
+<script defer src="/baremux/index.js"></script>
+<script defer src="/register-sw.js"></script><script defer src="/search.js"></script><script defer src="/index.js"></script>
+<script defer src="/bookmarks.js"></script>
+</head>
+<body>
+<aside class="sidebar" id="sidebar">
+ <a class="brand" href="/" aria-label="JSProx home"><img src="/icon.png" width="40" height="40" alt=""><span>JSProx</span></a>
+ <nav aria-label="Main navigation">
+ <button class="nav-item selected" id="home"><span aria-hidden="true">⌂</span> Home</button>
+ <button class="nav-item" id="bookmarks-nav"><span aria-hidden="true">☆</span> Bookmarks</button>
+ <button class="nav-item" id="cloak-open"><span aria-hidden="true">◈</span> Cloaking</button>
+ <button class="nav-item" id="settings-open"><span aria-hidden="true">⚙</span> Settings</button>
+ <button class="nav-item" id="diagnostics-open"><span aria-hidden="true">◎</span> Connection</button>
+ </nav>
+ <div class="sidebar-bottom"><div class="connection-pill"><i id="connection-dot"></i><span id="connection-label">Ready to browse</span></div><button id="reconnect" class="secondary-button">↻ Reconnect</button><span class="version">JSProx / 03</span></div>
+</aside>
+<main>
+ <header id="topbar">
+  <button id="sidebar-toggle" class="icon-button" title="Hide sidebar" aria-label="Hide sidebar" aria-expanded="true" aria-controls="sidebar">‹</button>
+  <span class="toolbar-title">Home</span>
+  <div class="nav-controls"><button id="nav-back" class="icon-button" title="Back" aria-label="Back">←</button><button id="nav-forward" class="icon-button" title="Forward" aria-label="Forward">→</button><button id="reload" class="icon-button" title="Reload current page" aria-label="Reload">↻</button></div>
+  <form id="uv-form" class="address-form"><input id="uv-address" aria-label="Address or search" placeholder="Search or enter a website" autocomplete="off" spellcheck="false"><button id="go" title="Go" aria-label="Go">Go</button></form>
+  <div class="page-tools"><button id="bookmark" class="icon-button" title="Bookmark current page" aria-label="Bookmark current page">☆</button><button id="copy-url" class="icon-button" title="Copy original website address" aria-label="Copy original URL">⧉</button><button id="game-view" class="icon-button" title="Fullscreen game view (Esc to exit)" aria-label="Fullscreen game view">⛶</button><button id="full" class="icon-button" title="Open proxied page without toolbar" aria-label="Full page">⤢</button></div>
+  <button id="theme-toggle" class="icon-button" title="Switch to light mode" aria-label="Switch to light mode">☀</button>
+  <button id="help-open" class="icon-button" title="Help" aria-label="Help">?</button>
+ </header>
+ <nav id="bookmark-bar" aria-label="Bookmarks bar"><button id="bookmark-bar-toggle" title="Hide bookmarks bar" aria-label="Hide bookmarks bar" aria-expanded="true">▾</button><div id="bookmark-bar-items"></div><button id="bookmark-add" title="Add bookmark or bookmarklet">＋ Add</button></nav>
+ <div id="notice" role="status" hidden><span id="uv-status"></span><button id="notice-close" aria-label="Dismiss notification">×</button></div>
+ <section id="stage">
+  <div id="home-background" aria-hidden="true"></div>
+  <div id="welcome"><div class="home-content">
+   <section class="search-home" aria-labelledby="home-title">
+    <img class="home-logo" src="/icon.png" width="72" height="72" alt="JSP monogram">
+    <h1 id="home-title">JSProx</h1>
+    <p>Enter a website or search below to start browsing.</p>
+    <form id="home-search"><span aria-hidden="true">⌕</span><input id="home-address" aria-label="Search the web" placeholder="Search or enter a website" autocomplete="off" spellcheck="false"><button type="submit">Open <span aria-hidden="true">→</span></button></form>
+   </section>
+   <section id="shortcuts-section"><div class="section-heading"><h2>Shortcuts</h2><button id="add-shortcut" class="text-button">+ Add shortcut</button></div><div id="shortcuts" class="shortcut-grid"></div></section>
+   <section class="recent-card" id="recent-section" hidden><div class="section-heading"><h2>Recently visited</h2><button id="clear-history" class="text-button">Clear</button></div><div id="recent-list"></div></section>
+   <div class="home-actions"><button id="customize" class="secondary-button">Change background</button><button id="home-cloak" class="secondary-button">Open cloaking</button></div>
+  </div></div>
+  <iframe id="uv-frame" title="Proxied page" allow="autoplay; fullscreen; gamepad; encrypted-media; clipboard-read; clipboard-write" allowfullscreen></iframe>
+ </section>
+</main>
+<dialog id="diagnostics-dialog"><div class="dialog-head"><h2>Connection</h2><button class="icon-button" data-close="diagnostics-dialog" aria-label="Close connection details">×</button></div><dl id="connection-details" class="connection-details"></dl><p class="field-help">A failed SSL handshake or ended connection can try the other transport once for GET/HEAD requests. Sign-in forms are never resubmitted automatically.</p><h3>Recent connection events</h3><div id="connection-events" class="connection-events"></div><div class="settings-actions"><button id="try-transport" class="primary-button">Try other transport</button><button id="connection-retry" class="secondary-button">Reconnect</button><button id="export-diagnostics" class="secondary-button">Export report</button></div><p class="field-help">Reports contain hostnames and connection status, not cookies, page content, or URL query strings. Some games may still require Full page or a different proxy engine.</p></dialog>
+<dialog id="cloak-dialog"><div class="dialog-head"><h2>Cloaking</h2><button class="icon-button" data-close="cloak-dialog" aria-label="Close cloaking">×</button></div><p>Open JSProx in a new tab with <strong>about:blank</strong> in the address bar.</p><p class="field-help">Your current website comes along. This changes the visible address, but does not hide network activity or erase browser history.</p><div class="cloak-preview"><span>◈</span><span>about:blank</span><small id="cloak-title">JSProx</small></div><p class="field-help">Change the tab name and icon in Settings → Tab &amp; privacy.</p><div class="dialog-footer"><button id="cloak-settings" class="secondary-button">Tab settings</button><button id="blank" class="primary-button">Open cloaked tab ↗</button></div></dialog>
+<dialog id="help-dialog"><div class="dialog-head"><h2>Using JSProx</h2><button class="icon-button" data-close="help-dialog" aria-label="Close help">×</button></div><ol class="help-list"><li><strong>Browse.</strong> Enter a URL or search, then press Open.</li><li><strong>Run a script.</strong> Click the Console button on a loaded page.</li><li><strong>Fix a stalled page.</strong> Use Reconnect in the sidebar, or change engine in Settings.</li><li><strong>Open a cloaked tab.</strong> Choose Cloaking in the sidebar.</li></ol><p class="field-help">The arrow at the top hides or shows the sidebar. Your background and preferences save on this device.</p></dialog>
+<dialog id="settings"><form id="settings-form"><div class="dialog-head"><div><span class="eyebrow">MAKE IT YOURS</span><h2>Settings</h2></div><button type="button" class="icon-button" data-close="settings" aria-label="Close settings">×</button></div>
+ <div class="settings-scroll">
+ <h3>Appearance</h3><div class="field-grid"><label>Theme<select name="theme"><option value="light">Daylight</option><option value="dark">After hours</option><option value="system">Follow device</option></select></label><label>Accent color<input type="color" name="accent" value="#6ee7b7"></label></div>
+ <label>Background image link<input name="wallpaper" type="url" placeholder="https://example.com/photo.jpg"></label><button type="button" id="load-wallpaper" class="secondary-button">Load image from link</button><div class="field-grid"><label>Or upload an image<input id="wallpaper-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label><button type="button" id="remove-wallpaper" class="secondary-button">Remove background</button></div><div class="wallpaper-preview" id="wallpaper-preview"><img id="wallpaper-preview-image" alt="Background preview" hidden><span id="wallpaper-preview-empty">No background image</span></div><p id="wallpaper-status" class="field-help" role="status">Upload an image or load a direct image link. Images up to 12 MB are resized to fit.</p><label>Background brightness<input name="wallpaperOpacity" type="range" min="0.1" max="1" step="0.05"></label>
+ <h3>Browsing</h3><div class="field-grid"><label>Default engine<select name="engine"><option value="scramjet">Scramjet</option><option value="uv">Ultraviolet fallback</option></select></label><label>Connection transport<select name="transport"><option value="libcurl">Libcurl (recommended)</option><option value="epoxy">Epoxy (fallback)</option></select></label><label>Search engine<select name="search"><option value="duckduckgo">DuckDuckGo</option><option value="google">Google</option><option value="bing">Bing</option><option value="brave">Brave</option></select></label><label>Start page<input name="homepage" placeholder="Home dashboard or https://..."></label></div>
+ <label class="toggle"><input name="autoReconnect" type="checkbox"> Recover a failed GET page load once</label><p class="field-help">Reconnect replaces the shared connection. Other JSProx tabs may need a reload. Forms and sign-in requests are never automatically resubmitted.</p>
+ <h3>Tab &amp; privacy</h3><div class="field-grid"><label>Tab title<input name="tabTitle" maxlength="80" placeholder="JSProx"></label><label>Tab icon<select name="tabIcon"><option value="default">JSProx</option><option value="leaf">Leaf</option><option value="notebook">Notebook</option><option value="none">None</option></select></label></div>
+ <label class="toggle"><input name="rememberHistory" type="checkbox"> Save recent destinations on this device</label><p class="field-help">Off by default. Home images, settings, and bookmarks stay in this browser. An about:blank wrapper changes the visible address, not network visibility or browser history. It cannot display an arbitrary website's URL.</p>
+ <div class="settings-actions"><button type="button" id="export-settings" class="secondary-button">Export preferences</button><label class="secondary-button file-label">Import preferences<input id="import-settings" type="file" accept="application/json" hidden></label><button type="button" id="reset-settings" class="secondary-button">Reset preferences</button></div>
+ </div><div class="dialog-footer"><span id="settings-message" role="status">Changes apply when saved.</span><button type="submit" class="primary-button">Save changes</button></div>
+</form></dialog>
+<dialog id="shortcut-dialog"><form id="shortcut-form"><div class="dialog-head"><h2>Add a shortcut</h2><button class="icon-button" type="button" data-close="shortcut-dialog" aria-label="Close">×</button></div><label>Name<input name="name" required maxlength="40" placeholder="My favorite place"></label><label>Website<input name="url" required placeholder="example.com"></label><div class="dialog-footer"><span></span><button type="submit" class="primary-button">Add shortcut</button></div></form></dialog>
+<dialog id="bookmarks-dialog"><div class="dialog-head"><h2>Bookmarks</h2><button class="icon-button" data-close="bookmarks-dialog" aria-label="Close bookmarks">×</button></div><p class="field-help">Click to open or run. Edit names and code, or move favorites left and right.</p><button id="bookmark-manager-add" class="secondary-button">Add bookmark or bookmarklet</button><div id="bookmarks-list"></div></dialog>
+<dialog id="bookmark-editor"><form id="bookmark-editor-form"><div class="dialog-head"><h2>Bookmark / bookmarklet</h2><button type="button" class="icon-button" data-close="bookmark-editor" aria-label="Close">×</button></div><label>Name<input name="name" required maxlength="80"></label><label>Website URL or javascript: code<textarea name="url" required rows="6" spellcheck="false" placeholder="https://example.com or javascript:…"></textarea></label><p class="field-help">Bookmarklets run only when clicked, on the currently open page. Ad cleanup hides common ad containers; reload the page to undo it.</p><p id="bookmark-error" role="status"></p><button class="primary-button" type="submit">Save bookmark</button></form></dialog>
+</body></html>
+
