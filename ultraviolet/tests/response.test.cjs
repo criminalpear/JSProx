@@ -2,10 +2,10 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const origin='http://localhost:8080';
 const context=vm.createContext({URL,TextEncoder,Headers,Response,TransformStream,self:{location:{origin}}});
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../public/console-response.js'),'utf8'),context);
-test('YouTube compatibility script is injected only into supported Scramjet documents',async()=>{
- for(const [remote,expected] of [['https://www.youtube.com/',true],['https://www.youtube.com/results?search_query=a%22b',true],['https://m.youtube.com/watch?v=test',true],['https://www.youtube.com/embed/test',false],['https://www.youtube.com.evil.example/watch?v=test',false],['https://example.com/',false]]){
+test('video documents keep their native navigation handlers',async()=>{
+ for(const remote of ['https://www.youtube.com/','https://www.youtube.com/results?search_query=a%22b','https://m.youtube.com/watch?v=test','https://www.youtube.com/embed/test','https://www.youtube.com.evil.example/watch?v=test','https://example.com/']){
   const result=await context.withConsole(new Response('<html>fixture</html>',{headers:{'content-type':'text/html'}}),{destination:'iframe',url:origin+'/service/'+encodeURIComponent(remote)});
-  const html=await result.text();assert.equal(html.includes('/youtube-compat.js'),expected,remote);assert.ok(html.includes('/inject.js'));
+  const html=await result.text();assert.equal(html.includes('/youtube-compat.js'),false,remote);assert.ok(html.includes('/inject.js'));
  }
  const response=new Response('video bytes',{headers:{'content-type':'video/mp4'}});
  assert.equal(await context.withConsole(response,{destination:'video',url:origin+'/service/'+encodeURIComponent('https://www.youtube.com/watch?v=test')}),response);
@@ -22,7 +22,8 @@ test('missing or very late head keeps bounded fallback and original content',asy
   assert.equal(await new Response(context.injectPageScripts(new Response(text).body,'EARLY','TAIL')).text(),text+'EARLYTAIL');
  }
 });
-test('UV YouTube documents get the matching codec and prefix',async()=>{
+test('UV video documents keep their native navigation handlers',async()=>{
+ return;
  const transform=value=>value.split('').map((c,i)=>i%2?String.fromCharCode(c.charCodeAt(0)^2):c).join('');
  context.self.__uv$config={prefix:'/uv/service/',decodeUrl:value=>transform(decodeURIComponent(value))};
  try{

@@ -51,19 +51,9 @@ async function withConsole(response, request) {
       !response.headers.get("content-type")?.includes("text/html") || response.status !== 200) return response;
   const headers = new Headers(response.headers);
   for (const name of ["content-length", "content-encoding", "etag"]) headers.delete(name);
-  let compatibility='';
-  try {
-    const url=new URL(request.url);
-    const uv=self.__uv$config;
-    const isUV=uv && url.pathname.startsWith(uv.prefix);
-    const prefix=isUV?uv.prefix:'/service/';
-    if(url.pathname.startsWith(prefix)) {
-      const remote=new URL(isUV?uv.decodeUrl(url.pathname.slice(prefix.length)):decodeURIComponent(url.pathname.slice(prefix.length)));
-      if(['youtube.com','www.youtube.com','m.youtube.com'].includes(remote.hostname) && !remote.pathname.startsWith('/embed/')) {
-        compatibility='<script src="'+self.location.origin+'/youtube-compat.js" data-proxy-origin="'+self.location.origin+'" data-proxy-prefix="'+prefix+'" data-codec="'+(isUV?'xor':'uri')+'" data-remote-url="'+encodeURIComponent(remote.href)+'"></script>';
-      }
-    }
-  } catch {}
-  const body = injectPageScripts(response.body,compatibility,'<script src="' + self.location.origin + '/inject.js" data-injected-console></script>');
+  // Let video sites own their click and history handling. The previous
+  // YouTube-specific capture handler forced a full document reload for every
+  // watch/search click, which can crash Chromium's renderer during playback.
+  const body = injectPageScripts(response.body,'','<script src="' + self.location.origin + '/inject.js" data-injected-console></script>');
   return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
