@@ -97,6 +97,7 @@
   root.appendChild(wrap);
 
   var btn = wrap.querySelector('.btn');
+  btn.style.display = 'none';
   var panel = wrap.querySelector('.panel');
   var out = wrap.querySelector('.out');
   var cmd = wrap.querySelector('textarea');
@@ -252,6 +253,10 @@
     btn.setAttribute('aria-label', open ? 'Close JSProx console' : 'Open JSProx console');
     if (open) cmd.focus();
   }
+  window.__jsproxConsoleVisibility = function (visible) {
+    btn.style.display = visible ? 'inline-flex' : 'none';
+    if (!visible) toggle(false);
+  };
 
   function execute() {
     var code = cmd.value; if (!code.trim()) return;

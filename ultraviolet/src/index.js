@@ -1,4 +1,6 @@
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { patchScramjetBundle } from "./scramjet-compat.js";
 import { dirname, join } from "node:path";
 import { hostname } from "node:os";
 import { createServer } from "node:http";
@@ -24,6 +26,8 @@ app.get("/health", (req, res) => res.set("Cache-Control", "no-store").json({ ok:
 // Our own public files first so our uv.config.js / sw.js win over the vendor copies.
 app.use(express.static(publicPath, { maxAge: 0 }));
 // Vendor bundles.
+const scramjetBundle=patchScramjetBundle(readFileSync(join(scramjetPath,'scramjet.all.js'),'utf8'));
+app.get('/scram/scramjet.all.js',(_req,res)=>res.type('application/javascript').send(scramjetBundle));
 app.use("/scram/", express.static(scramjetPath));
 app.use("/uv/", express.static(uvPath));
 app.use("/epoxy/", express.static(epoxyPath));

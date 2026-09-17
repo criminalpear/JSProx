@@ -1,0 +1,36 @@
+// Scramjet 1.1.0 rewrites already-proxied URLs a second time. History updates
+// on sites such as GitHub then make localhost the apparent upstream origin.
+// Keep the vendor package untouched; patch its served bundle in one checked spot.
+export function patchScramjetBundle(source) {
+  // The upstream baseURI getter returns only the origin, dropping the game
+  // directory. Loaders then request /assets/... instead of /game/version/assets/...
+  const baseURI='n=r.ownerDocument?.querySelector("base");return(r instanceof Document&&(n=r.querySelector("base")),n)?new URL(n.href,e.url.origin).href:e.url.origin';
+  const metaBase='const e=t.natives.call("Document.prototype.querySelector",t.global.document,"base");';
+  const relativeBase='return new URL(r,t.url.origin)}}return t.url';
+  for(const part of [baseURI,metaBase,relativeBase]) {
+    if(source.split(part).length!==2) throw new Error('Scramjet base URL compatibility patch needs review for this bundle version.');
+  }
+  source=source.replace(baseURI,'n=r.ownerDocument?.querySelector("base[href]");return(r instanceof Document&&(n=r.querySelector("base[href]")),n)?new URL(n.getAttribute("href"),e.url.href).href:e.url.href');
+  source=source.replace(metaBase,'const e=t.natives.call("Document.prototype.querySelector",t.global.document,"base[href]");');
+  source=source.replace(relativeBase,'return new URL(r,t.url.href)}}return t.url');
+  // Cookie values are opaque. Decoding % escapes corrupts signed session
+  // cookies (including GitHub's), since getCookies sends the value verbatim.
+  const cookieParser='setCookies(e,t){for(let r of e){let e=i()(r),';
+  const cookieLoader='load(e){if("object"==typeof e)return e;this.cookies=JSON.parse(e)}';
+  for(const part of [cookieParser,cookieLoader]) {
+    if(source.split(part).length!==2) throw new Error('Scramjet cookie compatibility patch needs review for this bundle version.');
+  }
+  source=source.replace(cookieParser,'setCookies(e,t){for(let r of e){let e=i()(r,{decodeValues:false}),');
+  source=source.replace(cookieLoader,'load(e){this.cookies="object"==typeof e?e:JSON.parse(e)}');
+  const needle='function l(e,t){if(e instanceof URL&&(e=e.toString()),e.startsWith("javascript:"))';
+  if(source.split(needle).length!==2) throw new Error('Scramjet URL compatibility patch needs review for this bundle version.');
+  source=source.replace(needle,'function l(e,t){if(e instanceof URL)e=e.toString();if(typeof e==="string"&&e.startsWith(location.origin+n.$W.prefix))return e;if(e.startsWith("javascript:"))');
+  const headers='if(t&&new URL(t.url).pathname.startsWith(c.$W.prefix)){let e=new URL((0,s.v2)(t.url));e.toString().includes("youtube.com")||(m.set("Referer",e.href),m.set("Origin",e.origin))}';
+  const chain='let t=e.referrer,r=await self.clients.matchAll({type:"window"});for(;t;){';
+  for(const part of [headers,chain]) {
+    if(source.split(part).length!==2) throw new Error('Scramjet request compatibility patch needs review for this bundle version.');
+  }
+  source=source.replace(headers,'self.normalizeProxyHeaders?.(e,m,location.origin,t);');
+  // Stored referrers can point back to the same page or form a longer cycle.
+  return source.replace(chain,'let t=e.referrer,r=await self.clients.matchAll({type:"window"}),jsproxSeen=new Set;for(;t&&!jsproxSeen.has(t)&&jsproxSeen.size<64;){jsproxSeen.add(t);');
+}

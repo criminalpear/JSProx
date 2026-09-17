@@ -6,13 +6,13 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "test": "node --test tests/transport.test.mjs tests/game-compat.test.cjs && node tests/browser.cjs"
+    "test": "node --test tests/transport.test.mjs tests/game-compat.test.cjs tests/scramjet-compat.test.mjs tests/request-compat.test.cjs tests/response.test.cjs && node tests/youtube-compat.test.cjs && node tests/cloak.test.cjs && node tests/browser.cjs"
   },
   "dependencies": {
     "@mercuryworkshop/bare-mux": "^2.1.8",
     "@mercuryworkshop/epoxy-transport": "2.1.28",
     "@mercuryworkshop/libcurl-transport": "1.5.0",
-    "@mercuryworkshop/scramjet": "^1.1.0",
+    "@mercuryworkshop/scramjet": "1.1.0",
     "@mercuryworkshop/wisp-js": "^0.5.0",
     "@titaniumnetwork-dev/ultraviolet": "^3.2.10",
     "compression": "^1.8.2",

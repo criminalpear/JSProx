@@ -1,5 +1,6 @@
 "use strict";
 const $ = id => document.getElementById(id);
+const tabIcons={leaf:'🌿',notebook:'📓',book:'📚',pencil:'✏️',school:'🎓',calculator:'🧮',calendar:'📅',folder:'📁',document:'📄',mail:'✉️',cloud:'☁️',globe:'🌐',star:'⭐',moon:'🌙',sun:'☀️',music:'🎵',game:'🎮',code:'💻',rocket:'🚀',coffee:'☕',cat:'🐱',flower:'🌸'};
 const defaults = { uiVersion: 3, theme: 'dark', accent: '#6ee7b7', wallpaper: '', wallpaperSource: '', wallpaperOpacity: .7, engine: 'scramjet', transport: 'libcurl', search: 'duckduckgo', homepage: '', autoReconnect: true, tabTitle: 'JSProx', tabIcon: 'default', rememberHistory: false };
 const engines = { duckduckgo: 'https://duckduckgo.com/?q=%s', google: 'https://www.google.com/search?q=%s', bing: 'https://www.bing.com/search?q=%s', brave: 'https://search.brave.com/search?q=%s' };
 function read(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
@@ -8,7 +9,7 @@ function httpUrl(value) { const url = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(val
 function validSettings(value) {
  const s = { ...defaults };
  if (!value || typeof value !== 'object') return s;
- for (const [key, choices] of Object.entries({ theme: ['light','dark','system'], engine: ['scramjet','uv'], transport: ['libcurl','epoxy'], search: Object.keys(engines), tabIcon: ['default','leaf','notebook','none'] })) if (choices.includes(value[key])) s[key] = value[key];
+ for (const [key, choices] of Object.entries({ theme: ['light','dark','system'], engine: ['scramjet','uv'], transport: ['libcurl','epoxy'], search: Object.keys(engines), tabIcon: ['default','none',...Object.keys(tabIcons)] })) if (choices.includes(value[key])) s[key] = value[key];
  if (/^#[0-9a-f]{6}$/i.test(value.accent)) s.accent = value.accent;
  if (typeof value.tabTitle === 'string') s.tabTitle = value.tabTitle.slice(0,80) || 'JSProx';
  if (typeof value.wallpaper === 'string' && (/^https?:\/\//i.test(value.wallpaper) || /^data:image\/(png|jpeg|webp|gif);base64,/i.test(value.wallpaper))) s.wallpaper = value.wallpaper;
@@ -31,22 +32,33 @@ function validBookmarks(list) { return Array.isArray(list) ? list.filter(x=>x &&
 function validLinks(list) { return Array.isArray(list) ? list.filter(x => { try { return x && typeof x.name === 'string' && typeof x.url === 'string' && ['http:', 'https:'].includes(new URL(x.url).protocol); } catch { return false; } }).map(x => ({name:x.name.slice(0,80),url:x.url})).slice(0,40) : []; }
 shortcuts = validLinks(shortcuts); bookmarks = validBookmarks(bookmarks); recent = validLinks(recent);
 const frame = $('uv-frame');
-const connection = new BareMux.BareMuxConnection('/baremux/worker.js?v=jsprox2');
-let scramjet;
+let connection;
+let scramjet, scramjetFrame;
 const scripts = new Map();
-function loadScript(src) {
+function loadScript(src, label = 'proxy engine') {
  if (!scripts.has(src)) scripts.set(src, new Promise((resolve,reject) => {
   const script=document.createElement('script');script.src=src;
-  script.onload=resolve;script.onerror=()=>{scripts.delete(src);script.remove();reject(new Error('Could not load proxy engine. Check your connection and retry.'));};
+  script.onload=resolve;script.onerror=()=>{scripts.delete(src);script.remove();reject(new Error('Could not load '+label+'. Check your connection and retry.'));};
   document.head.append(script);
  }));
  return scripts.get(src);
 }
+async function getConnection() {
+ if(connection)return connection;
+ const src='/baremux/index.js';
+ try {
+  if(!window.BareMux?.BareMuxConnection)await loadScript(src,'connection library (BareMux)');
+  if(!window.BareMux?.BareMuxConnection){scripts.delete(src);throw new Error('BareMux did not initialize.');}
+  connection=new window.BareMux.BareMuxConnection('/baremux/worker.js?v=jsprox2');
+  return connection;
+ }catch(error){throw new Error('Connection library unavailable. Restore dependencies with npm ci in the ultraviolet folder while the server is stopped, then restart it and retry. '+error.message);}
+}
 async function initializeEngine(engine) {
  if(engine==='uv'){await loadScript('/uv/uv.bundle.js');await loadScript('/uv/uv.config.js');return;}
  await loadScript('/scram/scramjet.all.js');
- if(!scramjet){const {ScramjetController}=$scramjetLoadController();scramjet=new ScramjetController({prefix:'/service/',flags:{captureErrors:false},files:{wasm:'/scram/scramjet.wasm.wasm',all:'/scram/scramjet.all.js',sync:'/scram/scramjet.sync.js'}});}
+ if(!scramjet){const {ScramjetController}=$scramjetLoadController();scramjet=new ScramjetController({prefix:'/service/',flags:{captureErrors:false,sourcemaps:false},files:{wasm:'/scram/scramjet.wasm.wasm',all:'/scram/scramjet.all.js',sync:'/scram/scramjet.sync.js'}});}
  await (initPromise ||= scramjet.init().catch(e=>{initPromise=null;throw e;}));
+ if(!scramjetFrame) scramjetFrame=scramjet.createFrame(frame);
 }
 let initPromise, transportPromise, transportKey = '', activeEngine = settings.engine, lastUrl = '', currentProxy = '', busy = false, retryUsed = false, recovering = false, loadTimer, navigation = 0;
 const connectionEvents=[];
@@ -69,7 +81,8 @@ async function ensureTransport(force = false) {
   const health = await fetch('/health', {cache:'no-store', signal:AbortSignal.timeout(8000)});
   if (!health.ok) throw new Error('The JSProx server is unavailable. Restart the server, then reconnect.');
   const endpoint = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/wisp/`;
-  await connection.setTransport('/resilient-transport.mjs', [{primary:key,wisp:endpoint}]);
+  const activeConnection=await getConnection();
+  await activeConnection.setTransport('/resilient-transport.mjs', [{primary:key,wisp:endpoint}]);
   transportKey = key;
  })().finally(()=> { transportPromise = null; });
  // A timeout is reported to the user; the shared worker operation is not retried concurrently.
@@ -94,7 +107,7 @@ function remember(url) {
   renderRecent();
  }
 }
-function loading() { clearTimeout(loadTimer); onlineLabel('Connecting...'); notify('Loading your page...'); loadTimer=setTimeout(()=>notify('Still loading? Try Reconnect, Full page, or a different engine in Settings.'),25000); }
+function loading() { clearTimeout(loadTimer); onlineLabel('Connecting...'); notify('Loading your page...'); loadTimer=setTimeout(()=>notify('Still loading? Try Reconnect or a different engine in Settings.'),25000); }
 async function go(value, options = {}) {
  if (busy) return;
  busy=true; $('go').disabled=true;
@@ -132,19 +145,19 @@ navigator.serviceWorker?.addEventListener('message', event => {
  let href; try{href=frame.contentWindow.location.href;}catch{}
  if(data.url!==currentProxy && data.url!==href)return;
  let failedHost='Current page';try{failedHost=new URL(currentUrl()).hostname;}catch{}
- recordConnectionEvent({host:failedHost,reason:data.tls?'TLS handshake failed':data.exhausted?'Both transports failed':'Connection interrupted'});
+ recordConnectionEvent({host:failedHost,reason:data.certificate?'Certificate verification failed':data.tls?'TLS handshake failed':data.exhausted?'Both transports failed':'Connection interrupted'});
  clearTimeout(loadTimer);
  onlineLabel('Connection interrupted',true);
- if(settings.autoReconnect && !retryUsed && data.method==='GET' && !data.tls && !data.exhausted) {
+ if(settings.autoReconnect && !retryUsed && data.method==='GET' && !data.tls && !data.exhausted && !data.certificate) {
   retryUsed=true;
   if(data.url===href)lastUrl=currentUrl();
   setTimeout(()=>reconnect(true),100);
- }else notify(data.tls||data.exhausted?'Could not establish a connection. Open Connection in the sidebar for details or try Full page.':'The proxy connection ended. Use Reconnect or switch transport in Settings. Form submissions are not retried automatically.');
+ }else notify(data.certificate?'Certificate verification failed. The connection was stopped; see Connection for details.':data.tls||data.exhausted?'Could not establish a connection. Open Connection in the sidebar for details.':'The proxy connection ended. Use Reconnect or switch transport in Settings. Form submissions are not retried automatically.');
 });
 frame.addEventListener('load',()=>{
  if(!document.body.classList.contains('loaded'))return;
  clearTimeout(loadTimer);
- try { if (/MuxTaskEnded|Multiplexor task ended|Failed to fetch|client error \(Wisp|SSL connect error|Both JSProx transports failed/i.test(frame.contentDocument.body?.innerText || '')) {onlineLabel('Connection interrupted',true);notify('Connection interrupted. Open Connection in the sidebar for recovery options.');return;} } catch {}
+ try { if (/MuxTaskEnded|Multiplexor task ended|Failed to fetch|client error \(Wisp|SSL connect error|SSL peer certificate|certificate verification|Both JSProx transports failed/i.test(frame.contentDocument.body?.innerText || '')) {onlineLabel('Connection interrupted',true);notify('Connection interrupted. Open Connection in the sidebar for recovery options.');return;} } catch {}
  const url=currentUrl();lastUrl=url;$('uv-address').value=url;remember(url);onlineLabel('Connected · '+settings.transport);notify('');
 });
 function home(){navigation++;clearTimeout(loadTimer);document.body.classList.remove('loaded');frame.src='about:blank';notify('');onlineLabel('Ready to explore');$('home-address').focus();}
@@ -155,8 +168,7 @@ $('reload').onclick=()=>{if(lastUrl)go(currentUrl());};
 $('reconnect').onclick=()=>reconnect();
 $('nav-back').onclick=()=>{if(navIndex>0){navIndex--;go(navHistory[navIndex]);syncNav();}};
 $('nav-forward').onclick=()=>{if(navIndex<navHistory.length-1){navIndex++;go(navHistory[navIndex]);syncNav();}};
-$('full').onclick=()=>{if(lastUrl && document.body.classList.contains('loaded'))location.assign(proxyUrl(currentUrl()));else notify('Open a website first to use Full page.');};
-$('game-view').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('stage').requestFullscreen();}catch{notify('Fullscreen is unavailable in this browser. Use Full page instead.');}};
+$('game-view').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('stage').requestFullscreen();}catch{notify('Fullscreen is unavailable in this browser. Use the top-controls toggle instead.');}};
 document.addEventListener('fullscreenchange',()=>{$('game-view').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Fullscreen game view');});
 $('notice-close').onclick=()=>notify('');
 window.addEventListener('offline',()=>{onlineLabel('You are offline',true);notify('Your device is offline. Reconnect when your network returns.');});
@@ -230,7 +242,7 @@ function applySettings(){
  favicon.type=settings.tabIcon==='default'?'image/png':'image/svg+xml';
  if(settings.tabIcon==='default')favicon.href='/icon.png';
  else if(settings.tabIcon==='none')favicon.href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>';
- else favicon.href='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="50" font-size="50">${settings.tabIcon==='leaf'?'🌿':'📓'}</text></svg>`);
+ else favicon.href='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="50" font-size="50">${tabIcons[settings.tabIcon]||'📓'}</text></svg>`);
  renderRecent();
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(settings.theme==='system')applySettings();});
@@ -272,7 +284,7 @@ $('try-transport').onclick=async()=>{settings.transport=settings.transport==='li
 $('connection-retry').onclick=()=>{$('diagnostics-dialog').close();reconnect();};
 $('export-diagnostics').onclick=()=>download(connectionReport(),'jsprox-connection-report.json');
 let sidebarHidden=read('jsprox.sidebarHidden',matchMedia('(max-width:700px)').matches)===true;
-function applySidebar(){document.body.classList.toggle('sidebar-hidden',sidebarHidden);$('sidebar-toggle').textContent=sidebarHidden?'›':'‹';$('sidebar-toggle').title=sidebarHidden?'Show sidebar':'Hide sidebar';$('sidebar-toggle').setAttribute('aria-label',$('sidebar-toggle').title);$('sidebar-toggle').setAttribute('aria-expanded',String(!sidebarHidden));}
+function applySidebar(){document.body.classList.toggle('sidebar-hidden',sidebarHidden);$('sidebar-toggle').title=sidebarHidden?'Show sidebar':'Hide sidebar';$('sidebar-toggle').setAttribute('aria-label',$('sidebar-toggle').title);$('sidebar-toggle').setAttribute('aria-expanded',String(!sidebarHidden));}
 $('sidebar-toggle').onclick=()=>{sidebarHidden=!sidebarHidden;applySidebar();try{write('jsprox.sidebarHidden',sidebarHidden);}catch{}};
 $('theme-toggle').onclick=()=>{settings.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';try{write('jsprox.settings',settings);}catch{}applySettings();};
 $('copy-url').onclick=async()=>{try{await navigator.clipboard.writeText(currentUrl());notify('Original website address copied.');}catch{notify('Copy the website address from the address bar. Clipboard access is unavailable.');}};
@@ -293,11 +305,36 @@ function download(data,name){const url=URL.createObjectURL(new Blob([JSON.string
 $('export-settings').onclick=()=>download({version:1,settings,shortcuts,bookmarks},'jsprox-preferences.json');
 $('import-settings').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>3*1024*1024)throw new Error('Preference file is too large.');const data=JSON.parse(await file.text());if(data.version!==1||!data.settings)throw new Error('This is not a JSProx preference export.');const next=validSettings(data.settings);write('jsprox.settings',next);settings=next;shortcuts=validLinks(data.shortcuts);bookmarks=validBookmarks(data.bookmarks);write('jsprox.shortcuts',shortcuts);write('jsprox.bookmarks',bookmarks);applySettings();renderShortcuts();renderBookmarkBar();$('settings').close();notify('Preferences imported.');}catch(err){$('settings-message').textContent=err.message;}e.target.value='';};
 $('reset-settings').onclick=()=>{try{write('jsprox.settings',defaults);settings={...defaults};recent=[];localStorage.removeItem('jsprox.history');applySettings();$('settings').close();notify('Preferences reset. Bookmarks and shortcuts were kept.');}catch{$('settings-message').textContent='Browser storage is unavailable.';}};
-$('blank').onclick=()=>{
- const popup=window.open('about:blank','_blank');
- if(!popup){notify('The browser blocked the new tab. Allow popups for JSProx and try again.');return;}
- try{const doc=popup.document;doc.title=settings.tabTitle;doc.body.style.cssText='margin:0;height:100vh;overflow:hidden;background:#101714';const icon=doc.createElement('link');icon.rel='icon';icon.href=document.querySelector('link[rel=icon]').href;doc.head.append(icon);const embedded=doc.createElement('iframe');embedded.src=location.origin+'/'+(document.body.classList.contains('loaded')?'#open='+encodeURIComponent(currentUrl()):'');embedded.title='JSProx';embedded.allow='cross-origin-isolated; fullscreen; autoplay; gamepad; encrypted-media';embedded.style.cssText='width:100%;height:100%;border:0';doc.body.append(embedded);$('cloak-dialog').close();notify('Opened JSProx in an about:blank tab.');}catch{popup.close();notify('This browser does not support the about:blank wrapper.');}
-};
+function cloak(newTab){
+ const src=location.origin+'/'+(document.body.classList.contains('loaded')?'#open='+encodeURIComponent(currentUrl()):'');
+ const title=settings.tabTitle, iconUrl=document.querySelector('link[rel=icon]').href;
+ // A same-window about:blank navigation destroys this script. Let a temporary
+ // helper populate the original window after that navigation completes.
+ if(!newTab){
+  if(window.top!==window){notify('This tab is already inside a cloaked wrapper.');return null;}
+  const helper=window.open('about:blank','_blank','popup,width=320,height=160');
+  if(!helper){notify('Allow popups to cloak this tab. Your current page was kept.');return null;}
+  helper.document.title='Preparing current-tab cloak';
+  helper.document.body.textContent='Preparing your current tab… This helper closes automatically.';
+  helper.__jsproxCloak={src,title,iconUrl};
+  const script=helper.document.createElement('script');script.src=location.origin+'/cloak-helper.js';
+  script.onerror=()=>{helper.close();notify('Could not load the cloak helper. Your current page was kept.');};
+  helper.document.head.append(script);
+  return helper;
+ }
+ const target=window.open('about:blank','_blank');
+ if(!target){notify('Popup blocked. Allow popups for JSProx and try again.');return null;}
+ try{const doc=target.document;doc.open();doc.write('<!doctype html><html><head></head><body></body></html>');doc.close();doc.title=title;doc.body.style.cssText='margin:0;height:100vh;overflow:hidden;background:#101714';const icon=doc.createElement('link');icon.rel='icon';icon.href=iconUrl;doc.head.append(icon);const embedded=doc.createElement('iframe');embedded.src=src;embedded.title='JSProx';embedded.allow='cross-origin-isolated; fullscreen; autoplay; gamepad; encrypted-media';embedded.style.cssText='width:100%;height:100%;border:0';doc.body.append(embedded);if(newTab){$('cloak-dialog').close();notify('Opened cloaked tab.');}return target;}catch{if(newTab)target.close();notify('This browser could not create the wrapper.');}
+}
+$('blank').onclick=()=>cloak(true);
+$('cloak-current').onclick=()=>cloak(false);
+for(const [value,emoji] of Object.entries(tabIcons)){const select=$('settings-form').elements.tabIcon;if(![...select.options].some(o=>o.value===value)){const option=new Option(emoji+' '+value[0].toUpperCase()+value.slice(1),value);select.add(option);}}
+let panelHidden=read('jsprox.panelHidden',false)===true;
+function applyPanel(){document.body.classList.toggle('panel-hidden',panelHidden);(panelHidden?document.querySelector('main'):$('topbar')).prepend($('chrome-toggles'));$('panel-toggle').setAttribute('aria-expanded',String(!panelHidden));$('panel-toggle').setAttribute('aria-label',panelHidden?'Show top controls':'Hide top controls');$('panel-toggle').title=panelHidden?'Show top controls':'Hide top controls';}
+$('panel-toggle').onclick=()=>{panelHidden=!panelHidden;try{write('jsprox.panelHidden',panelHidden);}catch{}applyPanel();};applyPanel();
+let consoleVisible=false;
+$('console-toggle').onclick=()=>{consoleVisible=!consoleVisible;$('console-toggle').setAttribute('aria-pressed',String(consoleVisible));$('console-toggle').title=consoleVisible?'Hide console button':'Show console button';$('console-toggle').setAttribute('aria-label',$('console-toggle').title);try{frame.contentWindow.__jsproxConsoleVisibility(consoleVisible);}catch{notify('Open a page first. Ctrl+` also opens its console.');}};
+frame.addEventListener('load',()=>{consoleVisible=false;$('console-toggle').setAttribute('aria-pressed','false');$('console-toggle').title='Show console button';$('console-toggle').setAttribute('aria-label','Show console button');});
 applySettings();renderShortcuts();syncNav();applySidebar();
 const initialUrl=new URLSearchParams(location.hash.slice(1)).get('open');
 if(initialUrl && /^https?:\/\//i.test(initialUrl))go(initialUrl);else if(settings.homepage)go(settings.homepage);
@@ -308,3 +345,17 @@ if(/^https?:\/\//i.test(settings.wallpaper)){
   const updated={...settings,wallpaper:image,wallpaperSource:previous};write('jsprox.settings',updated);settings=updated;applySettings();
  }).catch(()=>notify('Your saved background could not load. Open Settings to upload it or try another direct image link.'));
 }
+navigator.serviceWorker.addEventListener('message',({data})=>{
+ if(data?.type!=='jsprox:access-error'||![401,403].includes(data.status))return;
+ let href='';try{href=frame.contentWindow.location.href;}catch{}
+ let host;try{host=new URL(currentUrl()).hostname;}catch{return;}
+ let gameFile=false;
+ if(data.url!==currentProxy && data.url!==href){
+  try{const remote=new URL(activeEngine==='scramjet'?scramjet.decodeUrl(data.url):__uv$config.decodeUrl(new URL(data.url).pathname.slice(__uv$config.prefix.length)));
+   gameFile=/(^|\.)crazygames\.com$/.test(host)&&remote.hostname.endsWith('.game-files.crazygames.com');if(!gameFile)return;host=remote.hostname;
+  }catch{return;}
+ }
+ recordConnectionEvent({host,reason:'Website returned HTTP '+data.status});
+ notify(gameFile?'The game-file server returned '+data.status+'. The game itself was blocked. See Connection for the affected host.':'Website returned '+data.status+'. Sign-in or access was rejected. Connection tools can open the original site outside the proxy.');
+});
+const direct=document.createElement('button');direct.className='secondary-button';direct.textContent='Open original site (no proxy)';direct.onclick=()=>{if(!lastUrl){notify('Open a website first.');return;}window.open(currentUrl(),'_blank','noopener,noreferrer');};$('diagnostics-dialog').append(direct);
