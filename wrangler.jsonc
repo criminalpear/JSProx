@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "jsprox",
+  "main": "cloudflare/worker.js",
+  "compatibility_date": "2026-09-23",
+  "containers": [
+    {
+      "class_name": "JSProxContainer",
+      "image": "./Dockerfile",
+      "max_instances": 1,
+      "instance_type": "basic"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "JSPROX_CONTAINER", "class_name": "JSProxContainer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["JSProxContainer"] }
+  ],
+  "observability": { "enabled": true }
+}
