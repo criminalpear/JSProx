@@ -1,0 +1,7 @@
+**/node_modules
+**/.git
+**/tests
+**/.devcontainer
+**/*.png
+!ultraviolet/public/**/*.png
+!ultraviolet/public/*.png
