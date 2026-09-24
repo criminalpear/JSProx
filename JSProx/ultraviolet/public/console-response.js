@@ -54,6 +54,6 @@ async function withConsole(response, request) {
   // Let video sites own their click and history handling. The previous
   // YouTube-specific capture handler forced a full document reload for every
   // watch/search click, which can crash Chromium's renderer during playback.
-  const body = injectPageScripts(response.body,'','<script src="' + self.location.origin + '/inject.js" data-injected-console></script>');
+  const body = injectPageScripts(response.body,'<script src="' + self.location.origin + '/form-target-compat.js" data-form-target-compat></script>','<script src="' + self.location.origin + '/inject.js" data-injected-console></script>');
   return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
