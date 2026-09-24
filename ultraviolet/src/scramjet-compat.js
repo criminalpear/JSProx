@@ -31,6 +31,12 @@ export function patchScramjetBundle(source) {
     if(source.split(part).length!==2) throw new Error('Scramjet request compatibility patch needs review for this bundle version.');
   }
   source=source.replace(headers,'self.normalizeProxyHeaders?.(e,m,location.origin,t);');
+  // BareMux's connection worker belongs to the proxy origin. Scramjet must
+  // leave this internal SharedWorker URL alone when a proxied page responds
+  // to a service worker getPort request during a sign-in POST.
+  const sharedWorker='e.Proxy("SharedWorker",{construct(t){t.args[0]=(0,i.Oy)(t.args[0],e.meta)+"?dest=sharedworker"';
+  if(source.split(sharedWorker).length!==2) throw new Error('Scramjet SharedWorker compatibility patch needs review for this bundle version.');
+  source=source.replace(sharedWorker,'e.Proxy("SharedWorker",{construct(t){if(/^\\/baremux\\/worker\\.js(?:\\?|$)/.test(t.args[0]))return t.return(t.call());t.args[0]=(0,i.Oy)(t.args[0],e.meta)+"?dest=sharedworker"');
   // Stored referrers can point back to the same page or form a longer cycle.
   return source.replace(chain,'let t=e.referrer,r=await self.clients.matchAll({type:"window"}),jsproxSeen=new Set;for(;t&&!jsproxSeen.has(t)&&jsproxSeen.size<64;){jsproxSeen.add(t);');
 }

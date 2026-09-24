@@ -44,6 +44,8 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  await page.click('#add-shortcut');await page.locator('#shortcut-form [name=name]').fill('Example');await page.locator('#shortcut-form [name=url]').fill('example.com');await page.locator('#shortcut-form button[type=submit]').click();assert.equal(await page.locator('.shortcut-text b').last().textContent(),'Example');
  console.log('PASS preferences, image upload persistence, export, shortcuts');
  await visit(page,'https://example.com');await example(page);console.log('PASS Scramjet + Libcurl navigation');
+ assert.equal(await page.frames()[1].evaluate(()=>{try{const worker=new SharedWorker('/baremux/worker.js?v=jsprox2','bare-mux-worker');worker.port.start();worker.port.close();return true}catch(error){return error.message}}),true);
+ console.log('PASS BareMux SharedWorker stays on proxy origin');
  const targetForm='<form target=_top action=https://example.com><button>Submit target top</button></form>';
  await visit(page,'https://httpbin.org/base64/'+Buffer.from(targetForm).toString('base64'));
  await page.frameLocator('#uv-frame').getByRole('button',{name:'Submit target top'}).waitFor();
@@ -51,6 +53,12 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  await page.frameLocator('#uv-frame').getByRole('heading',{name:'Example Domain'}).waitFor();
  assert.equal(page.url(),origin+'/');
  console.log('PASS proxied _top form submission stays in the JSProx frame');
+ const postForm='<form method=post target=_top action=https://httpbin.org/post><input name=code value=246810><button>Submit code</button></form>';
+ await visit(page,'https://httpbin.org/base64/'+Buffer.from(postForm).toString('base64'));
+ await page.frameLocator('#uv-frame').getByRole('button',{name:'Submit code'}).click();
+ await page.frameLocator('#uv-frame').getByText('"246810"').waitFor();
+ assert.equal(page.url(),origin+'/');
+ console.log('PASS proxied _top POST preserves form data');
  await visit(page,'https://example.com');await page.waitForFunction(()=>currentUrl()==='https://example.com/');await example(page);
  await page.frames()[1].evaluate(()=>{const form=document.createElement('form');form.action='https://example.com/?dynamic-target=1';form.target='_top';document.body.append(form);form.submit();});
  await page.waitForFunction(()=>currentUrl().includes('dynamic-target=1'));
