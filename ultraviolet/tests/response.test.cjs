@@ -10,6 +10,12 @@ test('video documents keep their native navigation handlers',async()=>{
  const response=new Response('video bytes',{headers:{'content-type':'video/mp4'}});
  assert.equal(await context.withConsole(response,{destination:'video',url:origin+'/service/'+encodeURIComponent('https://www.youtube.com/watch?v=test')}),response);
 });
+
+test('form target compatibility loads before site scripts',async()=>{
+ const response=new Response('<!doctype html><html><head><script>site()</script></head><body></body></html>',{headers:{'content-type':'text/html'}});
+ const html=await (await context.withConsole(response,{destination:'iframe',url:origin+'/service/'+encodeURIComponent('https://login.live.com/')})).text();
+ assert.ok(html.indexOf('/form-target-compat.js')<html.indexOf('site()'));
+});
 test('early injection preserves bytes and doctype across split head tags',async()=>{
  const text='<!doctype html>\n<html><head data-test="é"><script>site()</script></head><body>🎮</body></html>';
  const bytes=new TextEncoder().encode(text);
