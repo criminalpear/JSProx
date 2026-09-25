@@ -60,6 +60,16 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  assert.equal(await page.locator('#game-view').getAttribute('aria-label'),'Exit fullscreen');
  await page.evaluate(()=>document.exitFullscreen());
  console.log('PASS game fullscreen belongs to proxied page and keyboard input reaches it');
+ await page.evaluate(()=>{window.originalCurrentUrl=currentUrl;currentUrl=()=> 'https://www.xbox.com/en-US/play/games/fortnite/BT5P2X999VH2';});
+ const directGame=page.waitForEvent('popup');
+ await page.click('#game-view');
+ const gamePage=await directGame;
+ await gamePage.waitForLoadState('domcontentloaded');
+ assert.equal(gamePage.url(),await page.locator('#uv-frame').getAttribute('src'));
+ assert.equal(await gamePage.locator('h1').textContent(),'Example Domain');
+ await gamePage.close();
+ await page.evaluate(()=>{currentUrl=window.originalCurrentUrl;delete window.originalCurrentUrl;});
+ console.log('PASS Xbox game opens as a top-level proxied tab');
  assert.equal(await page.evaluate(()=>localStorage.getItem('bare-mux-path')),origin+'/baremux/worker.js?v=jsprox2');
  assert.equal(await page.frames()[1].evaluate(()=>{try{const worker=new SharedWorker('/baremux/worker.js?v=jsprox2','bare-mux-worker');worker.port.start();worker.port.close();return true}catch(error){return error.message}}),true);
  console.log('PASS BareMux worker path stays absolute on proxy origin');

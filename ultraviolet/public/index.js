@@ -162,8 +162,12 @@ frame.addEventListener('load',()=>{
  clearTimeout(loadTimer);
  try { if (/MuxTaskEnded|Multiplexor task ended|Failed to fetch|client error \(Wisp|SSL connect error|SSL peer certificate|certificate verification|Both JSProx transports failed/i.test(frame.contentDocument.body?.innerText || '')) {onlineLabel('Connection interrupted',true);notify('Connection interrupted. Open Connection in the sidebar for recovery options.');return;} } catch {}
  const url=currentUrl();lastUrl=url;$('uv-address').value=url;remember(url);onlineLabel('Connected · '+settings.transport);notify('');
+ const xbox=new URL(url).hostname==='www.xbox.com';
+ $('game-view').textContent=xbox?'↗':'⛶';
+ $('game-view').title=xbox?'Open Xbox game in a new tab':'Fullscreen game view';
+ $('game-view').setAttribute('aria-label',$('game-view').title);
 });
-function home(){navigation++;clearTimeout(loadTimer);document.body.classList.remove('loaded');frame.src='about:blank';notify('');onlineLabel('Ready to explore');$('home-address').focus();}
+function home(){navigation++;clearTimeout(loadTimer);document.body.classList.remove('loaded');frame.src='about:blank';$('game-view').textContent='⛶';$('game-view').title='Fullscreen game view';$('game-view').setAttribute('aria-label',$('game-view').title);notify('');onlineLabel('Ready to explore');$('home-address').focus();}
 $('home').onclick=home;
 $('uv-form').onsubmit=e=>{e.preventDefault();if($('uv-address').value.trim())go($('uv-address').value.trim());};
 $('home-search').onsubmit=e=>{e.preventDefault();if($('home-address').value.trim())go($('home-address').value.trim());};
@@ -173,6 +177,12 @@ $('nav-back').onclick=()=>{if(navIndex>0){navIndex--;go(navHistory[navIndex]);sy
 $('nav-forward').onclick=()=>{if(navIndex<navHistory.length-1){navIndex++;go(navHistory[navIndex]);syncNav();}};
 $('game-view').onclick=async()=>{
  try {
+  // Chromium denies Keyboard Lock API requests from iframes. Xbox needs it
+  // for native mouse and keyboard play, so launch its proxied page as a tab.
+  if(new URL(currentUrl()).hostname==='www.xbox.com'){
+   window.open(frame.contentWindow.location.href,'_blank','noopener');
+   return;
+  }
   if(document.fullscreenElement){await document.exitFullscreen();return;}
   // Fullscreen the proxied document, not the dashboard. Streaming sites use
   // their own fullscreen state to enable keyboard and mouse controls.
