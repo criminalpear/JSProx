@@ -20,6 +20,20 @@ test('served URL rewriter preserves canonical proxy URLs and rewrites external U
  assert.equal(context.l('https://other.example/service/x',meta),'http://localhost:8080/service/'+encodeURIComponent('https://other.example/service/x'));
 });
 test('unknown bundles require explicit compatibility review',()=>assert.throws(()=>patchScramjetBundle('changed bundle'),/needs review/));
+test('BareMux SharedWorker stays on proxy origin inside virtual Microsoft pages',()=>{
+ const source=patchScramjetBundle(readFileSync(join(scramjetPath,'scramjet.all.js'),'utf8'));
+ const start=source.indexOf('e.Proxy("SharedWorker",{construct(t){')+'e.Proxy("SharedWorker",{construct(t){'.length;
+ const guard=source.slice(start,source.indexOf('t.args[0]=(0,i.Oy)',start));
+ const run=vm.runInNewContext('(t,e)=>{'+guard+'return false}',{});
+ const actual='https://proxy.example/baremux/worker.js?v=jsprox2';
+ for(const input of ['/baremux/worker.js?v=jsprox2','https://login.live.com/baremux/worker.js?v=jsprox2',actual]){
+  const target={args:[input],call(){return this.args[0]},return(value){return value}};
+  assert.equal(run(target,{global:{__jsproxProxyOrigin:'https://proxy.example'}}),actual);
+ }
+ const other={args:['https://game.example/worker.js'],call(){throw Error('Should not call native worker')}};
+ assert.equal(run(other,{global:{__jsproxProxyOrigin:'https://proxy.example'}}),false);
+ assert.equal(other.args[0],'https://game.example/worker.js');
+});
 test('document and loader base URLs preserve game paths and resolve relative base tags',()=>{
  const source=patchScramjetBundle(readFileSync(join(scramjetPath,'scramjet.all.js'),'utf8'));
  const start=source.indexOf('e.Trap("Node.prototype.baseURI",{get')+'e.Trap("Node.prototype.baseURI",{get'.length;
