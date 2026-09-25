@@ -1,7 +1,7 @@
 "use strict";
 async function registerSW(engine = "scramjet") {
   if (!navigator.serviceWorker) throw new Error("JSProx requires HTTPS (or localhost) and service worker support.");
-  const script = engine === "uv" ? "/uv/sw.js" : "/sw.js?v=xbox-transport-1";
+  const script = engine === "uv" ? "/uv/sw.js" : "/sw.js?v=xbox-worker-2";
   const scope = engine === "uv" ? "/uv/" : "/service/";
   const registration = await navigator.serviceWorker.register(script, { scope, updateViaCache: "none" });
   const worker = registration.installing || registration.waiting || registration.active;
