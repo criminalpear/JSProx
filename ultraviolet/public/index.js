@@ -171,8 +171,33 @@ $('reload').onclick=()=>{if(lastUrl)go(currentUrl());};
 $('reconnect').onclick=()=>reconnect();
 $('nav-back').onclick=()=>{if(navIndex>0){navIndex--;go(navHistory[navIndex]);syncNav();}};
 $('nav-forward').onclick=()=>{if(navIndex<navHistory.length-1){navIndex++;go(navHistory[navIndex]);syncNav();}};
-$('game-view').onclick=async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await $('stage').requestFullscreen();}catch{notify('Fullscreen is unavailable in this browser. Use the top-controls toggle instead.');}};
-document.addEventListener('fullscreenchange',()=>{$('game-view').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Fullscreen game view');});
+$('game-view').onclick=async()=>{
+ try {
+  if(document.fullscreenElement){await document.exitFullscreen();return;}
+  // Fullscreen the proxied document, not the dashboard. Streaming sites use
+  // their own fullscreen state to enable keyboard and mouse controls.
+  const child=frame.contentDocument;
+  const target=document.body.classList.contains('loaded')&&child?.documentElement || $('stage');
+  await target.requestFullscreen();
+  if(target!==$('stage')){
+   frame.focus();
+   frame.contentWindow.focus();
+  }
+ }catch{notify('Fullscreen is unavailable in this browser. Use the top-controls toggle instead.');}
+};
+document.addEventListener('fullscreenchange',()=>{
+ $('game-view').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Fullscreen game view');
+ // Xbox can enter fullscreen from its own controls as well as our button.
+ // Lock Esc at the top level so Chrome sends it to the focused game frame.
+ if(document.fullscreenElement===frame){
+  try{
+   if(new URL(currentUrl()).hostname==='www.xbox.com'){
+    frame.focus();frame.contentWindow.focus();
+    navigator.keyboard?.lock?.(['Escape'])?.catch(()=>{});
+   }
+  }catch{}
+ }else if(!document.fullscreenElement){try{navigator.keyboard?.unlock?.();}catch{}}
+});
 $('notice-close').onclick=()=>notify('');
 window.addEventListener('offline',()=>{onlineLabel('You are offline',true);notify('Your device is offline. Reconnect when your network returns.');});
 window.addEventListener('online',()=>{onlineLabel('Network is back');notify('Network is back. Press Reconnect to resume your page.');});
