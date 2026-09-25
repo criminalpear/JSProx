@@ -67,6 +67,11 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  await page.waitForURL(/\/service\//);
  await page.getByRole('heading',{name:'Example Domain'}).waitFor();
  assert.equal(page.context().pages().length,1);
+ assert.equal(await page.evaluate(async()=>{await window.__jsproxTransportReady;return new BareMux.BareMuxConnection('/baremux/worker.js?v=jsprox2').getTransport();}),'/resilient-transport.mjs');
+ await page.evaluate(()=>{const link=document.createElement('a');link.href='https://example.com/?top-level-followup=1';link.textContent='Followup page';document.body.append(link);});
+ await page.getByRole('link',{name:'Followup page'}).click();
+ await page.waitForURL(/top-level-followup/);
+ await page.getByRole('heading',{name:'Example Domain'}).waitFor();
  await page.goto(origin);await visit(page,'https://example.com');await example(page);
  await page.evaluate(()=>{isXboxCloudUrl=url=>url.includes('direct-game-test=2');});
  await page.frames()[1].evaluate(()=>history.pushState(null,'','https://example.com/?direct-game-test=2'));
