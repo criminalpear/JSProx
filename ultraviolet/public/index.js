@@ -92,6 +92,16 @@ async function ensureTransport(force = false) {
  return deadline(transportPromise,20000,'Connection setup timed out. Reload JSProx and try again.');
 }
 function proxyUrl(url) { return activeEngine === 'uv' ? __uv$config.prefix + __uv$config.encodeUrl(url) : scramjet.encodeUrl(url); }
+function isXboxCloudUrl(value) {
+ try { const url=new URL(value); return url.hostname==='www.xbox.com' && /^\/(?:[a-z]{2}-[a-z]{2}\/)?play(?:\/|$)/i.test(url.pathname); }
+ catch { return false; }
+}
+let openingXboxCloud=false;
+function openXboxCloud(href) {
+ if(openingXboxCloud)return;
+ openingXboxCloud=true;
+ location.assign(href);
+}
 function currentUrl() {
  try {
   const href=frame.contentWindow.location.href;
@@ -125,6 +135,9 @@ async function go(value, options = {}) {
   if(ticket!==navigation)return;
   if(!options.retry)retryUsed=false;
   lastUrl=url; currentProxy=location.origin+proxyUrl(url); $('uv-address').value=url;
+  // Xbox's Keyboard Lock request is denied inside an iframe. Give its cloud
+  // gaming page the top-level tab while keeping it behind the same proxy.
+  if(isXboxCloudUrl(url)){openXboxCloud(currentProxy);return;}
   document.body.classList.add('loaded'); loading(); frame.src=currentProxy;
  } catch(e) { notify(e.message || String(e)); onlineLabel('Connection needs attention',true); }
  finally { busy=false; $('go').disabled=false; }
@@ -162,12 +175,14 @@ frame.addEventListener('load',()=>{
  clearTimeout(loadTimer);
  try { if (/MuxTaskEnded|Multiplexor task ended|Failed to fetch|client error \(Wisp|SSL connect error|SSL peer certificate|certificate verification|Both JSProx transports failed/i.test(frame.contentDocument.body?.innerText || '')) {onlineLabel('Connection interrupted',true);notify('Connection interrupted. Open Connection in the sidebar for recovery options.');return;} } catch {}
  const url=currentUrl();lastUrl=url;$('uv-address').value=url;remember(url);onlineLabel('Connected · '+settings.transport);notify('');
- const xbox=new URL(url).hostname==='www.xbox.com';
- $('game-view').textContent=xbox?'↗':'⛶';
- $('game-view').title=xbox?'Open Xbox game in a new tab':'Fullscreen game view';
- $('game-view').setAttribute('aria-label',$('game-view').title);
+ if(isXboxCloudUrl(url))openXboxCloud(frame.contentWindow.location.href);
 });
-function home(){navigation++;clearTimeout(loadTimer);document.body.classList.remove('loaded');frame.src='about:blank';$('game-view').textContent='⛶';$('game-view').title='Fullscreen game view';$('game-view').setAttribute('aria-label',$('game-view').title);notify('');onlineLabel('Ready to explore');$('home-address').focus();}
+// Xbox navigates between catalog and game routes without a frame load.
+setInterval(()=>{
+ if(openingXboxCloud||!document.body.classList.contains('loaded'))return;
+ if(isXboxCloudUrl(currentUrl()))openXboxCloud(frame.contentWindow.location.href);
+},750);
+function home(){navigation++;clearTimeout(loadTimer);document.body.classList.remove('loaded');frame.src='about:blank';notify('');onlineLabel('Ready to explore');$('home-address').focus();}
 $('home').onclick=home;
 $('uv-form').onsubmit=e=>{e.preventDefault();if($('uv-address').value.trim())go($('uv-address').value.trim());};
 $('home-search').onsubmit=e=>{e.preventDefault();if($('home-address').value.trim())go($('home-address').value.trim());};
@@ -177,12 +192,6 @@ $('nav-back').onclick=()=>{if(navIndex>0){navIndex--;go(navHistory[navIndex]);sy
 $('nav-forward').onclick=()=>{if(navIndex<navHistory.length-1){navIndex++;go(navHistory[navIndex]);syncNav();}};
 $('game-view').onclick=async()=>{
  try {
-  // Chromium denies Keyboard Lock API requests from iframes. Xbox needs it
-  // for native mouse and keyboard play, so launch its proxied page as a tab.
-  if(new URL(currentUrl()).hostname==='www.xbox.com'){
-   window.open(frame.contentWindow.location.href,'_blank','noopener');
-   return;
-  }
   if(document.fullscreenElement){await document.exitFullscreen();return;}
   // Fullscreen the proxied document, not the dashboard. Streaming sites use
   // their own fullscreen state to enable keyboard and mouse controls.
@@ -197,16 +206,6 @@ $('game-view').onclick=async()=>{
 };
 document.addEventListener('fullscreenchange',()=>{
  $('game-view').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Fullscreen game view');
- // Xbox can enter fullscreen from its own controls as well as our button.
- // Lock Esc at the top level so Chrome sends it to the focused game frame.
- if(document.fullscreenElement===frame){
-  try{
-   if(new URL(currentUrl()).hostname==='www.xbox.com'){
-    frame.focus();frame.contentWindow.focus();
-    navigator.keyboard?.lock?.(['Escape'])?.catch(()=>{});
-   }
-  }catch{}
- }else if(!document.fullscreenElement){try{navigator.keyboard?.unlock?.();}catch{}}
 });
 $('notice-close').onclick=()=>notify('');
 window.addEventListener('offline',()=>{onlineLabel('You are offline',true);notify('Your device is offline. Reconnect when your network returns.');});
