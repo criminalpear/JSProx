@@ -49,7 +49,10 @@ async function getConnection() {
  try {
   if(!window.BareMux?.BareMuxConnection)await loadScript(src,'connection library (BareMux)');
   if(!window.BareMux?.BareMuxConnection){scripts.delete(src);throw new Error('BareMux did not initialize.');}
-  connection=new window.BareMux.BareMuxConnection('/baremux/worker.js?v=jsprox2');
+  // BareMux shares this path with proxied pages through localStorage. An
+  // absolute proxy URL keeps its internal worker on our origin even when a
+  // Microsoft page changes the document base URL during sign-in.
+  connection=new window.BareMux.BareMuxConnection(location.origin+'/baremux/worker.js?v=jsprox2');
   return connection;
  }catch(error){throw new Error('Connection library unavailable. Restore dependencies with npm ci in the ultraviolet folder while the server is stopped, then restart it and retry. '+error.message);}
 }

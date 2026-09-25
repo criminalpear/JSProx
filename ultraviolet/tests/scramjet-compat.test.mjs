@@ -59,6 +59,37 @@ test('signed cookie values survive parsing and persisted cookies survive reload'
  context.store.cookies={};context.store.load(dump);
  assert.equal(context.store.getCookies(url,false),'session=abc%2Bdef%2Fghi%3D');
 });
+test('virtual storage enumerates account keys and clears only its origin',()=>{
+ const source=patchScramjetBundle(readFileSync(join(scramjetPath,'scramjet.all.js'),'utf8'));
+ const start=source.indexOf('5289:function(e,t,r){function n(e,t){')+'5289:function(e,t,r){'.length;
+ const end=source.indexOf('r.r(t),r.d(t,{default:()=>n})',start);
+ assert.ok(start>20 && end>start);
+ const context=vm.createContext({});
+ vm.runInContext(source.slice(start,end)+';globalThis.install=n;',context);
+ function storage() {
+  return {
+   getItem(key){return Object.hasOwn(this,key)?this[key]:null;},
+   setItem(key,value){this[key]=String(value);},
+   removeItem(key){delete this[key];}
+  };
+ }
+ const local=storage(), session=storage();
+ const scope={localStorage:local,sessionStorage:session};
+ context.install({url:new URL('https://www.xbox.com/play')},scope);
+ scope.localStorage.setItem('msal.account','account-value');
+ scope.localStorage.setItem('msal.token','token-value');
+ local.setItem('login.live.com@separate','other-value');
+ assert.equal(scope.localStorage.length,2);
+ assert.equal(scope.localStorage.key(0),'msal.account');
+ assert.equal(scope.localStorage.key(1),'msal.token');
+ assert.equal(scope.localStorage.key(2),null);
+ assert.equal(scope.localStorage.getItem('msal.account'),'account-value');
+ scope.sessionStorage.setItem('state','pending');
+ assert.equal(scope.sessionStorage.key(0),'state');
+ scope.localStorage.clear();
+ assert.equal(scope.localStorage.length,0);
+ assert.equal(local.getItem('login.live.com@separate'),'other-value');
+});
 test('referrer traversal terminates on self references and longer cycles',async()=>{
  const source=patchScramjetBundle(readFileSync(join(scramjetPath,'scramjet.all.js'),'utf8'));
  const start=source.indexOf('let t=e.referrer,r=await self.clients.matchAll');

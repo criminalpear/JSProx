@@ -44,8 +44,9 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  await page.click('#add-shortcut');await page.locator('#shortcut-form [name=name]').fill('Example');await page.locator('#shortcut-form [name=url]').fill('example.com');await page.locator('#shortcut-form button[type=submit]').click();assert.equal(await page.locator('.shortcut-text b').last().textContent(),'Example');
  console.log('PASS preferences, image upload persistence, export, shortcuts');
  await visit(page,'https://example.com');await example(page);console.log('PASS Scramjet + Libcurl navigation');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('bare-mux-path')),origin+'/baremux/worker.js?v=jsprox2');
  assert.equal(await page.frames()[1].evaluate(()=>{try{const worker=new SharedWorker('/baremux/worker.js?v=jsprox2','bare-mux-worker');worker.port.start();worker.port.close();return true}catch(error){return error.message}}),true);
- console.log('PASS BareMux SharedWorker stays on proxy origin');
+ console.log('PASS BareMux worker path stays absolute on proxy origin');
  const targetForm='<form target=_top action=https://example.com><button>Submit target top</button></form>';
  await visit(page,'https://httpbin.org/base64/'+Buffer.from(targetForm).toString('base64'));
  await page.frameLocator('#uv-frame').getByRole('button',{name:'Submit target top'}).waitFor();

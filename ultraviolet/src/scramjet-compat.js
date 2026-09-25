@@ -22,6 +22,16 @@ export function patchScramjetBundle(source) {
   }
   source=source.replace(cookieParser,'setCookies(e,t){for(let r of e){let e=i()(r,{decodeValues:false}),');
   source=source.replace(cookieLoader,'load(e){this.cookies="object"==typeof e?e:JSON.parse(e)}');
+  // MSAL enumerates Storage.key(index) to discover cached accounts and tokens.
+  // Scramjet 1.1.0 returns the stored value here instead of the key, and its
+  // clear() loop iterates array indexes rather than the origin's storage keys.
+  const storageKey='return t.getItem(n[r])};case"length"';
+  const storageClear='for(let r in Object.keys(t))r.startsWith(e.url.host)&&t.removeItem(r)';
+  for(const part of [storageKey,storageClear]) {
+    if(source.split(part).length!==2) throw new Error('Scramjet storage compatibility patch needs review for this bundle version.');
+  }
+  source=source.replace(storageKey,'return n[r]?.substring(e.url.host.length+1)??null};case"length"');
+  source=source.replace(storageClear,'for(let r of Object.keys(t))r.startsWith(e.url.host+"@")&&t.removeItem(r)');
   const needle='function l(e,t){if(e instanceof URL&&(e=e.toString()),e.startsWith("javascript:"))';
   if(source.split(needle).length!==2) throw new Error('Scramjet URL compatibility patch needs review for this bundle version.');
   source=source.replace(needle,'function l(e,t){if(e instanceof URL)e=e.toString();if(typeof e==="string"&&e.startsWith(location.origin+n.$W.prefix))return e;if(e.startsWith("javascript:"))');
