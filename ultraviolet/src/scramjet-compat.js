@@ -40,7 +40,7 @@ export function patchScramjetBundle(source) {
   for(const part of [headers,chain]) {
     if(source.split(part).length!==2) throw new Error('Scramjet request compatibility patch needs review for this bundle version.');
   }
-  source=source.replace(headers,'self.normalizeProxyHeaders?.(e,m,location.origin,t);');
+  source=source.replace(headers,'await self.normalizeProxyHeaders?.(e,m,location.origin,t);');
   // BareMux's connection worker belongs to the proxy origin. Scramjet must
   // leave this internal SharedWorker URL alone when a proxied page responds
   // to a service worker getPort request during a sign-in POST.
