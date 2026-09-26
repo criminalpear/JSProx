@@ -9,7 +9,10 @@
   const proxyOrigin=new URL(script.src).origin;
   window.__jsproxProxyOrigin=proxyOrigin;
   const connection=new BareMux.BareMuxConnection(proxyOrigin+'/baremux/worker.js?v=jsprox2');
-  window.__jsproxTransportReady=connection.setTransport('/resilient-transport.mjs', [
-    {primary:'libcurl',wisp}
-  ]).catch(error=>console.error('JSProx transport startup failed:',error));
+  window.__jsproxTransportReady=connection.getTransport().then(name=>{
+    if(name)return;
+    return connection.setTransport('/resilient-transport.mjs', [{primary:'libcurl',wisp}]);
+  }).catch(error=>console.error('JSProx transport startup failed:',error)).finally(()=>{
+    navigator.serviceWorker?.controller?.postMessage({type:'jsprox:transport-ready'});
+  });
 })();

@@ -102,6 +102,16 @@ function openXboxCloud(href) {
  openingXboxCloud=true;
  location.assign(href);
 }
+function maybeOpenXboxCloud() {
+ if(openingXboxCloud || !isXboxCloudUrl(currentUrl()))return;
+ try {
+  const child=frame.contentDocument;
+  if(child?.readyState!=='complete')return;
+  const profile=child.querySelector('button[aria-label^="Profile, settings, and"]');
+  if(!profile || /sign in/i.test(profile.getAttribute('aria-label') || ''))return;
+  openXboxCloud(frame.contentWindow.location.href);
+ }catch{}
+}
 function currentUrl() {
  try {
   const href=frame.contentWindow.location.href;
@@ -135,9 +145,6 @@ async function go(value, options = {}) {
   if(ticket!==navigation)return;
   if(!options.retry)retryUsed=false;
   lastUrl=url; currentProxy=location.origin+proxyUrl(url); $('uv-address').value=url;
-  // Xbox's Keyboard Lock request is denied inside an iframe. Give its cloud
-  // gaming page the top-level tab while keeping it behind the same proxy.
-  if(isXboxCloudUrl(url)){openXboxCloud(currentProxy);return;}
   document.body.classList.add('loaded'); loading(); frame.src=currentProxy;
  } catch(e) { notify(e.message || String(e)); onlineLabel('Connection needs attention',true); }
  finally { busy=false; $('go').disabled=false; }
@@ -175,12 +182,12 @@ frame.addEventListener('load',()=>{
  clearTimeout(loadTimer);
  try { if (/MuxTaskEnded|Multiplexor task ended|Failed to fetch|client error \(Wisp|SSL connect error|SSL peer certificate|certificate verification|Both JSProx transports failed/i.test(frame.contentDocument.body?.innerText || '')) {onlineLabel('Connection interrupted',true);notify('Connection interrupted. Open Connection in the sidebar for recovery options.');return;} } catch {}
  const url=currentUrl();lastUrl=url;$('uv-address').value=url;remember(url);onlineLabel('Connected · '+settings.transport);notify('');
- if(isXboxCloudUrl(url))openXboxCloud(frame.contentWindow.location.href);
+ maybeOpenXboxCloud();
 });
 // Xbox navigates between catalog and game routes without a frame load.
 setInterval(()=>{
  if(openingXboxCloud||!document.body.classList.contains('loaded'))return;
- if(isXboxCloudUrl(currentUrl()))openXboxCloud(frame.contentWindow.location.href);
+ maybeOpenXboxCloud();
 },750);
 function home(){navigation++;clearTimeout(loadTimer);document.body.classList.remove('loaded');frame.src='about:blank';notify('');onlineLabel('Ready to explore');$('home-address').focus();}
 $('home').onclick=home;

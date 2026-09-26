@@ -64,6 +64,11 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  assert.equal(await page.evaluate(()=>isXboxCloudUrl('https://www.xbox.com/games/store/fortnite')),false);
  await page.evaluate(()=>{isXboxCloudUrl=url=>url.includes('direct-game-test=1');});
  await visit(page,'https://example.com/?direct-game-test=1');
+ await example(page);
+ assert.equal(page.url(),origin+'/');
+ await page.waitForTimeout(900);
+ assert.equal(page.url(),origin+'/');
+ await page.frames()[1].evaluate(()=>{const button=document.createElement('button');button.setAttribute('aria-label','Profile, settings, and get Game Pass');document.body.append(button);});
  await page.waitForURL(/\/service\//);
  await page.getByRole('heading',{name:'Example Domain'}).waitFor();
  assert.equal(page.context().pages().length,1);
@@ -75,12 +80,15 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  await page.goto(origin);await visit(page,'https://example.com');await example(page);
  await page.evaluate(()=>{isXboxCloudUrl=url=>url.includes('direct-game-test=2');});
  await page.frames()[1].evaluate(()=>history.pushState(null,'','https://example.com/?direct-game-test=2'));
+ await page.waitForTimeout(900);
+ assert.equal(page.url(),origin+'/');
+ await page.frames()[1].evaluate(()=>{const button=document.createElement('button');button.setAttribute('aria-label','Profile, settings, and get Game Pass');document.body.append(button);});
  await page.waitForURL(/\/service\//);
  assert.match(page.url(),/\/service\//);
  assert.match(decodeURIComponent(page.url()),/direct-game-test=2/);
  await page.getByRole('heading',{name:'Example Domain'}).waitFor();
  await page.goto(origin);await visit(page,'https://example.com');await example(page);
- console.log('PASS Xbox cloud gaming and SPA routes open automatically in the current proxied tab');
+ console.log('PASS signed-in Xbox cloud gaming and SPA routes open in the current proxied tab');
  assert.equal(await page.evaluate(()=>localStorage.getItem('bare-mux-path')),origin+'/baremux/worker.js?v=jsprox2');
  assert.equal(await page.frames()[1].evaluate(()=>{try{const worker=new SharedWorker('/baremux/worker.js?v=jsprox2','bare-mux-worker');worker.port.start();worker.port.close();return true}catch(error){return error.message}}),true);
  console.log('PASS BareMux worker path stays absolute on proxy origin');
