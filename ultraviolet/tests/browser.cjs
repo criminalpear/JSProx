@@ -62,6 +62,8 @@ async function settings(page,changes){await page.click('#settings-open');for(con
  console.log('PASS game fullscreen belongs to proxied page and keyboard input reaches it');
  assert.equal(await page.evaluate(()=>isXboxCloudUrl('https://www.xbox.com/en-US/play/games/fortnite/BT5P2X999VH2')),true);
  assert.equal(await page.evaluate(()=>isXboxCloudUrl('https://www.xbox.com/games/store/fortnite')),false);
+ assert.equal(await page.evaluate(()=>isXboxLaunchUrl('https://www.xbox.com/en-US/play/launch/fortnite/BT5P2X999VH2')),true);
+ assert.equal(await page.evaluate(()=>isXboxLaunchUrl('https://www.xbox.com/en-US/play/games/fortnite/BT5P2X999VH2')),false);
  await page.evaluate(()=>{isXboxCloudUrl=url=>url.includes('direct-game-test=1');});
  await visit(page,'https://example.com/?direct-game-test=1');
  await example(page);

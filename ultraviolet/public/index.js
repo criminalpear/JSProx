@@ -96,6 +96,10 @@ function isXboxCloudUrl(value) {
  try { const url=new URL(value); return url.hostname==='www.xbox.com' && /^\/(?:[a-z]{2}-[a-z]{2}\/)?play(?:\/|$)/i.test(url.pathname); }
  catch { return false; }
 }
+function isXboxLaunchUrl(value) {
+ try { const url=new URL(value); return url.hostname==='www.xbox.com' && /^\/(?:[a-z]{2}-[a-z]{2}\/)?play\/launch\//i.test(url.pathname); }
+ catch { return false; }
+}
 let openingXboxCloud=false;
 function openXboxCloud(href) {
  if(openingXboxCloud)return;
@@ -107,6 +111,10 @@ function maybeOpenXboxCloud() {
  try {
   const child=frame.contentDocument;
   if(child?.readyState!=='complete')return;
+  // A stream started quickly can hide the header before the profile check
+  // runs, leaving the game in the frame where keyboard lock is denied.
+  // Launch routes already require a signed-in account.
+  if(isXboxLaunchUrl(currentUrl())){openXboxCloud(frame.contentWindow.location.href);return;}
   const profile=child.querySelector('button[aria-label^="Profile, settings, and"]');
   if(!profile || /sign in/i.test(profile.getAttribute('aria-label') || ''))return;
   openXboxCloud(frame.contentWindow.location.href);
