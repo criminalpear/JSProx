@@ -8,20 +8,20 @@ const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_ORIGIN_ALTERNATES = 64;
 
 function defaultLoadLibcurl() {
-  return import('/libcurl-adapter.mjs').then(module => module.default);
+  return import("/libcurl-adapter.mjs").then((module) => module.default);
 }
 
 function defaultLoadEpoxy() {
   // Keep Epoxy out of the initial transport load. Its WASM is sizeable.
-  return import('/epoxy/index.mjs').then(module => module.default);
+  return import("/epoxy/index.mjs").then((module) => module.default);
 }
 
 function errorText(error) {
   const cause = error && error.cause;
   return [error && error.message, error && error.code, cause && cause.message, cause && cause.code, error]
-    .filter(value => value != null)
-    .map(value => String(value))
-    .join(' ');
+    .filter((value) => value != null)
+    .map((value) => String(value))
+    .join(" ");
 }
 
 export function isRetryableTransportError(error) {
@@ -29,13 +29,15 @@ export function isRetryableTransportError(error) {
   // Certificate failures are intentionally never retried or bypassed.
   if (/cert(?:ificate)?|verification|peer[_ -]?failed/i.test(text)) return false;
   const codes = [error && error.code, error && error.cause && error.cause.code];
-  if (codes.some(code => Number(code) === 35 || String(code) === 'CURLE_SSL_CONNECT_ERROR')) return true;
-  return /\b(?:error|code)\s*[:#=]?\s*35\b|\bCURLE_SSL_CONNECT_ERROR\b|\bSSL\s+connect\s+error\b|\bMuxTaskEnded\b|\bMultiplexor\s+task\s+ended\b/i.test(text);
+  if (codes.some((code) => Number(code) === 35 || String(code) === "CURLE_SSL_CONNECT_ERROR")) return true;
+  return /\b(?:error|code)\s*[:#=]?\s*35\b|\bCURLE_SSL_CONNECT_ERROR\b|\bSSL\s+connect\s+error\b|\bMuxTaskEnded\b|\bMultiplexor\s+task\s+ended\b/i.test(
+    text,
+  );
 }
 
 function retryReason(error) {
   const text = errorText(error);
-  return /MuxTaskEnded|Multiplexor\s+task\s+ended/i.test(text) ? 'mux-ended' : 'tls-handshake';
+  return /MuxTaskEnded|Multiplexor\s+task\s+ended/i.test(text) ? "mux-ended" : "tls-handshake";
 }
 
 function asUrl(remote) {
@@ -51,13 +53,13 @@ export function createResilientTransport(dependencies = {}) {
     loadLibcurl: defaultLoadLibcurl,
     loadEpoxy: defaultLoadEpoxy,
     now: () => Date.now(),
-    BroadcastChannel: typeof BroadcastChannel === 'function' ? BroadcastChannel : null,
-    ...dependencies
+    BroadcastChannel: typeof BroadcastChannel === "function" ? BroadcastChannel : null,
+    ...dependencies,
   };
 
   return class ResilientTransport {
     constructor(options = {}) {
-      this.primary = options.primary === 'epoxy' ? 'epoxy' : 'libcurl';
+      this.primary = options.primary === "epoxy" ? "epoxy" : "libcurl";
       this.wisp = options.wisp;
       this._instances = new Map();
       this._loading = new Map();
@@ -68,7 +70,7 @@ export function createResilientTransport(dependencies = {}) {
     }
 
     _other(name) {
-      return name === 'epoxy' ? 'libcurl' : 'epoxy';
+      return name === "epoxy" ? "libcurl" : "epoxy";
     }
 
     _optionsFor(name) {
@@ -80,12 +82,14 @@ export function createResilientTransport(dependencies = {}) {
     _loadTransport(name) {
       if (this._instances.has(name)) return Promise.resolve(this._instances.get(name));
       if (this._loading.has(name)) return this._loading.get(name);
-      const load = name === 'libcurl' ? deps.loadLibcurl : deps.loadEpoxy;
-      const promise = Promise.resolve().then(load).then(Transport => {
-        const instance = new Transport(this._optionsFor(name));
-        this._instances.set(name, instance);
-        return instance;
-      });
+      const load = name === "libcurl" ? deps.loadLibcurl : deps.loadEpoxy;
+      const promise = Promise.resolve()
+        .then(load)
+        .then((Transport) => {
+          const instance = new Transport(this._optionsFor(name));
+          this._instances.set(name, instance);
+          return instance;
+        });
       this._loading.set(name, promise);
       promise.catch(() => {
         if (this._loading.get(name) === promise) this._loading.delete(name);
@@ -95,7 +99,9 @@ export function createResilientTransport(dependencies = {}) {
 
     _initialize(name) {
       if (this._initializing.has(name)) return this._initializing.get(name);
-      const promise = this._loadTransport(name).then(transport => Promise.resolve(transport.init()).then(() => transport));
+      const promise = this._loadTransport(name).then((transport) =>
+        Promise.resolve(transport.init()).then(() => transport),
+      );
       this._initializing.set(name, promise);
       promise.catch(() => {
         if (this._initializing.get(name) === promise) this._initializing.delete(name);
@@ -111,7 +117,7 @@ export function createResilientTransport(dependencies = {}) {
 
     async meta() {
       const transport = await this._initialize(this.primary);
-      return typeof transport.meta === 'function' ? transport.meta() : undefined;
+      return typeof transport.meta === "function" ? transport.meta() : undefined;
     }
 
     _cachedTransport(origin) {
@@ -136,20 +142,21 @@ export function createResilientTransport(dependencies = {}) {
     }
 
     _emitFallback(host, from, to, reason) {
-      const message = { type: 'fallback', host, from, to, reason };
+      const message = { type: "fallback", host, from, to, reason };
       try {
-        if (!this._statusChannel && deps.BroadcastChannel) this._statusChannel = new deps.BroadcastChannel('jsprox:transport-status');
+        if (!this._statusChannel && deps.BroadcastChannel)
+          this._statusChannel = new deps.BroadcastChannel("jsprox:transport-status");
         if (this._statusChannel) this._statusChannel.postMessage(message);
       } catch (_) {
         // BroadcastChannel is informational; a blocked channel must not break browsing.
       }
-      if (typeof deps.onFallback === 'function') deps.onFallback(message);
+      if (typeof deps.onFallback === "function") deps.onFallback(message);
     }
 
     async request(remote, method, body, headers, signal) {
       const url = asUrl(remote);
-      const verb = String(method || 'GET').toUpperCase();
-      const canRetry = (verb === 'GET' || verb === 'HEAD') && (body === undefined || body === null);
+      const verb = String(method || "GET").toUpperCase();
+      const canRetry = (verb === "GET" || verb === "HEAD") && (body === undefined || body === null);
       const cached = this._cachedTransport(url.origin);
       const first = cached || this.primary;
       const second = this._other(first);
@@ -170,8 +177,11 @@ export function createResilientTransport(dependencies = {}) {
         } catch (fallbackError) {
           // Give callers a stable way to distinguish a completed two-transport
           // attempt from a single request failure. The original remains causal.
-          const combined = new Error('Both JSProx transports failed: ' + (error && error.message ? error.message : String(error)), { cause: error });
-          combined.code = 'JSPROX_BOTH_TRANSPORTS_FAILED';
+          const combined = new Error(
+            "Both JSProx transports failed: " + (error && error.message ? error.message : String(error)),
+            { cause: error },
+          );
+          combined.code = "JSPROX_BOTH_TRANSPORTS_FAILED";
           combined.fallbackError = fallbackError;
           throw combined;
         }
@@ -181,7 +191,7 @@ export function createResilientTransport(dependencies = {}) {
     connect(url, protocols, requestHeaders, onopen, onmessage, onclose, onerror) {
       // WebSockets have side effects and connection state, so never retry them.
       const transport = this._instances.get(this.primary);
-      if (!transport) throw new Error('Resilient transport must be initialized before connect().');
+      if (!transport) throw new Error("Resilient transport must be initialized before connect().");
       return transport.connect(url, protocols, requestHeaders, onopen, onmessage, onclose, onerror);
     }
   };

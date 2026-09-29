@@ -1,0 +1,28 @@
+name: Scramjet upgrade check
+
+# Fails when the newest Scramjet release no longer matches JSProx's bundle
+# patches (ultraviolet/src/scramjet-compat.js), so an upgrade is noticed early.
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Scramjet version or dist-tag"
+        default: latest
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ultraviolet
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ultraviolet/package-lock.json
+      - run: npm ci
+      - run: npm run check:scramjet -- "${{ inputs.version || 'latest' }}"

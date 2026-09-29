@@ -21,7 +21,7 @@ export default class JSProxLibcurl extends LibcurlTransport {
         return;
       } catch (error) {
         if (!String(error.message).includes("wasm not loaded yet") || Date.now() >= deadline) throw error;
-        await new Promise(resolve => setTimeout(resolve, 25));
+        await new Promise((resolve) => setTimeout(resolve, 25));
       }
     }
   }

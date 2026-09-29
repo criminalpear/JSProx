@@ -3,7 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
 
   // Install the Ultraviolet stack once when the Codespace is created.
-  "postCreateCommand": "cd ultraviolet && npm install",
+  "postCreateCommand": "cd ultraviolet && npm ci",
 
   // Start the proxy automatically each time you attach. Runs detached; logs to /tmp/uv.log.
   "postAttachCommand": "cd ultraviolet && (nohup npm start > /tmp/uv.log 2>&1 &) && echo 'JSProx starting on port 8080 — open the forwarded 8080 URL.'",

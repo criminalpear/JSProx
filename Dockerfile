@@ -1,14 +1,17 @@
 FROM node:22-slim
 
 WORKDIR /app
+ENV NODE_ENV=production PORT=8080
 
 COPY ultraviolet/package.json ultraviolet/package-lock.json ./
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npm cache clean --force
 
 COPY ultraviolet/src ./src
 COPY ultraviolet/public ./public
 
-ENV PORT=8080
+# The files stay root-owned and read-only to the app; the server itself runs unprivileged.
+USER node
 EXPOSE 8080
 
-CMD ["npm", "start"]
+# Run node directly so it receives SIGTERM from the container runtime (npm does not forward it).
+CMD ["node", "src/index.js"]

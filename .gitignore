@@ -1,0 +1,4 @@
+node_modules/
+# Screenshots written by the browser test suite
+ultraviolet/tests/*.png
+.wrangler/

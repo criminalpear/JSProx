@@ -1,0 +1,14 @@
+{
+  "name": "jsprox-legacy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Original node-unblocker version of JSProx. Kept for reference; the maintained app is in ../ultraviolet.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "unblocker": "^2.2.4"
+  }
+}

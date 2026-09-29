@@ -1,15 +1,15 @@
 {
-  "name": "jsprox",
+  "name": "jsprox-deploy",
   "version": "1.0.0",
-  "description": "A web proxy that injects a floating JavaScript console into every page it serves.",
-  "main": "server.js",
+  "private": true,
+  "description": "Cloudflare Containers deployment for JSProx. The app itself lives in ultraviolet/.",
   "scripts": {
-    "start": "node server.js"
+    "start": "npm --prefix ultraviolet start",
+    "test": "npm --prefix ultraviolet test",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
-    "@cloudflare/containers": "^0.3.7",
-    "express": "^4.19.2",
-    "unblocker": "^2.2.4"
+    "@cloudflare/containers": "^0.3.7"
   },
   "devDependencies": {
     "wrangler": "^4.137.0"

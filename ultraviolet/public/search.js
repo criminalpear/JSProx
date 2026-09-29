@@ -3,7 +3,8 @@ function search(input, template) {
   input = input.trim();
   if (/^[a-z][a-z\d+.-]*:/i.test(input) && !/^[^/\s]+:\d+(?:[/?#]|$)/.test(input)) {
     const url = new URL(input);
-    if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only HTTP and HTTPS addresses are supported.");
+    if (!["http:", "https:"].includes(url.protocol))
+      throw new Error("Only HTTP and HTTPS addresses are supported.");
     return url.href;
   }
   if (!/\s/.test(input)) {
