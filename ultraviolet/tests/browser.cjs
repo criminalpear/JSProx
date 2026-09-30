@@ -554,8 +554,38 @@ async function settings(page, changes) {
     .frameLocator("#uv-frame")
     .getByText("This domain is for use in documentation", { exact: false })
     .waitFor({ timeout: 45000 });
-  await popup.close();
   console.log("PASS about:blank wrapper actually proxies a page");
+  // A signed-in Xbox page must stay in the dashboard frame when cloaked. Handing it
+  // off replaced the dashboard, which owns the connection, and every request hung.
+  const wrapped = popup.frames().find((f) => f.parentFrame() === popup.mainFrame());
+  await wrapped.evaluate(() => {
+    isXboxCloudUrl = (url) => url.includes("cloaked-game-test");
+  });
+  await embedded.locator("#uv-address").fill("https://example.com/?cloaked-game-test=1");
+  await embedded.locator("#uv-form").evaluate((f) => f.requestSubmit());
+  await wrapped.waitForFunction(
+    () => {
+      const w = document.getElementById("uv-frame").contentWindow;
+      return w.location.href.includes("cloaked-game-test") && w.document.readyState === "complete" && !busy;
+    },
+    null,
+    { timeout: 45000 },
+  );
+  await wrapped.evaluate(() => {
+    const d = document.getElementById("uv-frame").contentDocument;
+    const button = d.createElement("button");
+    button.setAttribute("aria-label", "Profile, settings, and get Game Pass");
+    d.body.append(button);
+  });
+  await popup.waitForTimeout(1500);
+  assert.equal(new URL(wrapped.url()).pathname, "/");
+  const game = popup.frames().find((f) => f.url().includes("cloaked-game-test"));
+  assert.equal(
+    await game.evaluate(() => fetch("https://example.com/?cloaked-fetch=1").then((r) => r.status)),
+    200,
+  );
+  await popup.close();
+  console.log("PASS cloaked Xbox page stays in the dashboard frame and keeps its connection");
   const original = await context.newPage();
   await original.goto(origin);
   await original.locator("#cloak-open").click();

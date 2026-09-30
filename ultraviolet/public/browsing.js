@@ -24,6 +24,11 @@ function openXboxCloud(href) {
   location.assign(href);
 }
 function maybeOpenXboxCloud() {
+  // Inside a cloaked about:blank wrapper, the "whole tab" is still an iframe:
+  // keyboard lock stays unavailable, and replacing this dashboard would drop
+  // the connection it owns (transport-bootstrap.js only runs in real top-level
+  // documents), so every request from the Xbox page would hang.
+  if (window.top !== window) return;
   if (openingXboxCloud || !isXboxCloudUrl(currentUrl())) return;
   try {
     const child = frame.contentDocument;

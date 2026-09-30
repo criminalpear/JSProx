@@ -266,7 +266,8 @@ function cloak(newTab) {
     const embedded = doc.createElement("iframe");
     embedded.src = src;
     embedded.title = "JSProx";
-    embedded.allow = "cross-origin-isolated; fullscreen; autoplay; gamepad; encrypted-media";
+    embedded.allow =
+      "cross-origin-isolated; fullscreen; autoplay; gamepad; encrypted-media; clipboard-read; clipboard-write";
     embedded.style.cssText = "width:100%;height:100%;border:0";
     doc.body.append(embedded);
     if (newTab) {
