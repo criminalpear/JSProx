@@ -42,6 +42,35 @@ const PATCHES = [
     replace: 'load(e){this.cookies="object"==typeof e?e:JSON.parse(e)}',
   },
   {
+    group: "cookie",
+    // Honour Max-Age like a browser (it takes precedence over Expires). Scramjet
+    // ignored it, so YouTube's seconds-long ST-* navigation cookies never expired.
+    name: "Max-Age expiry",
+    find: "n.expires&&(n.expires=n.expires.toString());let a=",
+    replace:
+      "n.maxAge!==void 0&&Number.isFinite(Number(n.maxAge))&&(n.expires=new Date(Number(n.maxAge)>0?Date.now()+1e3*Number(n.maxAge):0)),n.expires&&(n.expires=n.expires.toString());let a=",
+  },
+  {
+    group: "cookie",
+    // Browsers ignore a cookie whose name plus value exceeds 4096 bytes. YouTube
+    // writes a ~110 KB ST-* cookie when a video is opened; storing it made every
+    // later youtube.com request carry a header Google rejects by closing the
+    // connection (libcurl error 55), so YouTube reported "You're offline".
+    name: "cookie size limit on store",
+    find: "this.cookies[a]=n}}getCookies",
+    replace:
+      'if(String(n.name??"").length+String(n.value??"").length>4096)continue;this.cookies[a]=n}}getCookies',
+  },
+  {
+    group: "cookie",
+    // The same limit when sending, which also clears oversized cookies already
+    // saved in a visitor's cookie store by earlier versions.
+    name: "cookie size limit on send",
+    find: "for(let a of n){if(a.expires&&new Date(a.expires)<r){",
+    replace:
+      'for(let a of n){if(String(a.name??"").length+String(a.value??"").length>4096){delete this.cookies[`${a.domain}@${a.path}@${a.name}`];continue}if(a.expires&&new Date(a.expires)<r){',
+  },
+  {
     group: "storage",
     // MSAL enumerates Storage.key(index) to discover cached accounts and tokens.
     // Scramjet 1.1.0 returns the stored value here instead of the key, and its

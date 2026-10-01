@@ -94,7 +94,7 @@ The browser suite starts its own server on port 8092 (override with `TEST_PORT`)
 
 ### Upgrading Scramjet
 
-`src/scramjet-compat.js` edits the served bundle in eleven exact places. Each edit must match exactly one spot, so a changed bundle stops the server instead of getting a wrong edit. Before you upgrade, run `npm run check:scramjet -- <version>`. It lists each patch that no longer matches: either the upstream bug was fixed (delete the patch) or the code moved (update it). Scramjet 2.x no longer ships `scramjet.all.js`, so moving to it is a port, not a version bump.
+`src/scramjet-compat.js` edits the served bundle in fourteen exact places. Each edit must match exactly one spot, so a changed bundle stops the server instead of getting a wrong edit. Before you upgrade, run `npm run check:scramjet -- <version>`. It lists each patch that no longer matches: either the upstream bug was fixed (delete the patch) or the code moved (update it). Scramjet 2.x no longer ships `scramjet.all.js`, so moving to it is a port, not a version bump.
 
 ## Repository layout
 

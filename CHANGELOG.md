@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-30
+
+Fixes:
+
+- **YouTube showed "You're offline" after opening a video from search.** When a video is opened, YouTube's page script writes a short-lived `ST-...` cookie of about 110 KB. Browsers ignore cookies whose name and value exceed 4096 bytes, but Scramjet's cookie store kept it (and ignored `Max-Age`, so these cookies never expired). Every later youtube.com request then carried a ~115 KB `Cookie` header, Google closed the connection (Libcurl error 55, Epoxy "tls handshake eof"), and YouTube reported being offline. The cookie store now enforces the 4096-byte limit when storing and sending (which also clears oversized cookies saved earlier) and honours `Max-Age`. This bug predates the 2026-09-28 changes.
+- **Cloaked mode: Xbox sign-in and cloud games did not load.** In the about:blank wrapper, the signed-in Xbox handoff replaced the dashboard frame that owns the connection, so every request from the Xbox page hung. Inside the wrapper the page now stays in the dashboard frame (keyboard lock is unavailable in any iframe, so nothing is lost). The wrapper frame also gets clipboard permissions like the normal game frame.
+
 ## 2026-09-28
 
 Fixes:

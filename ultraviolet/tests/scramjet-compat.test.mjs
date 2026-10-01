@@ -129,6 +129,54 @@ test("signed cookie values survive parsing and persisted cookies survive reload"
   context.store.load(dump);
   assert.equal(context.store.getCookies(url, false), "session=abc%2Bdef%2Fghi%3D");
 });
+test("cookie store drops oversized cookies and honours Max-Age like a browser", () => {
+  const source = patchScramjetBundle(readFileSync(join(scramjetPath, "scramjet.all.js"), "utf8"));
+  const parserStart = source.indexOf("4322:function(e){") + "4322:".length;
+  const parserText = source.slice(parserStart);
+  const parserEnd = parserText.search(/},\d+:function/);
+  let now = 1_000_000;
+  const FakeDate = class extends Date {
+    constructor(...args) {
+      super(...(args.length ? args : [now]));
+    }
+    static now() {
+      return now;
+    }
+  };
+  const context = vm.createContext({ URL, console, Date: FakeDate, module: { exports: {} } });
+  vm.runInContext("(" + parserText.slice(0, parserEnd) + "})(module);const i=()=>module.exports;", context);
+  const start = source.indexOf("class a{cookies={};setCookies");
+  const end = source.indexOf("},1427:", start);
+  vm.runInContext(source.slice(start, end) + ";globalThis.store=new a;", context);
+  const url = new URL("https://www.youtube.com/watch?v=x");
+
+  // YouTube writes a ~110 KB ST-* navigation cookie; Chrome ignores it (name+value > 4096).
+  context.store.setCookies(
+    ["PREF=f6=40000000; Path=/", "ST-abc=" + "x".repeat(113000) + "; Path=/; Max-Age=5"],
+    url,
+  );
+  assert.equal(context.store.getCookies(url, false), "PREF=f6=40000000");
+  context.store.setCookies(["edge=" + "y".repeat(4091) + "; Path=/"], url);
+  assert.match(context.store.getCookies(url, false), /edge=y{4091}/);
+
+  // An oversized cookie saved by an older version is removed instead of sent.
+  context.store.cookies[".www.youtube.com@/@ST-old"] = {
+    name: "ST-old",
+    value: "z".repeat(5000),
+    domain: ".www.youtube.com",
+    path: "/",
+  };
+  assert.doesNotMatch(context.store.getCookies(url, false), /ST-old/);
+  assert.equal(Object.hasOwn(context.store.cookies, ".www.youtube.com@/@ST-old"), false);
+
+  // Max-Age expiry (and deletion with Max-Age=0).
+  context.store.setCookies(["ST-short=1; Path=/; Max-Age=5"], url);
+  assert.match(context.store.getCookies(url, false), /ST-short=1/);
+  now += 6000;
+  assert.doesNotMatch(context.store.getCookies(url, false), /ST-short/);
+  context.store.setCookies(["PREF=gone; Path=/; Max-Age=0"], url);
+  assert.doesNotMatch(context.store.getCookies(url, false), /PREF/);
+});
 test("virtual storage enumerates account keys and clears only its origin", () => {
   const source = patchScramjetBundle(readFileSync(join(scramjetPath, "scramjet.all.js"), "utf8"));
   const start = source.indexOf("5289:function(e,t,r){function n(e,t){") + "5289:function(e,t,r){".length;
