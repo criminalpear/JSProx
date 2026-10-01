@@ -126,7 +126,13 @@ async function withConsole(response, request) {
     transport +
       '<script src="' +
       self.location.origin +
-      '/form-target-compat.js" data-form-target-compat></script>',
+      '/form-target-compat.js" data-form-target-compat></script>' +
+      '<script src="' +
+      self.location.origin +
+      '/view-transition-compat.js"></script>' +
+      '<script src="' +
+      self.location.origin +
+      '/keyboard-lock-compat.js"></script>',
     '<script src="' + self.location.origin + '/inject.js" data-injected-console></script>',
   );
   return new Response(body, { status: response.status, statusText: response.statusText, headers });

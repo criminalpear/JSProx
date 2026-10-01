@@ -53,6 +53,23 @@ test("form target compatibility loads before site scripts", async () => {
   ).text();
   assert.ok(html.indexOf("/form-target-compat.js") < html.indexOf("site()"));
 });
+test("view transition and keyboard lock compatibility load before site scripts", async () => {
+  const response = new Response(
+    "<!doctype html><html><head><script>site()</script></head><body></body></html>",
+    {
+      headers: { "content-type": "text/html" },
+    },
+  );
+  const html = await (
+    await context.withConsole(response, {
+      destination: "iframe",
+      url: origin + "/service/" + encodeURIComponent("https://www.youtube.com/watch?v=x"),
+    })
+  ).text();
+  assert.ok(html.includes("/view-transition-compat.js"));
+  assert.ok(html.indexOf("/view-transition-compat.js") < html.indexOf("site()"));
+  assert.ok(html.indexOf("/keyboard-lock-compat.js") < html.indexOf("site()"));
+});
 test("early injection preserves bytes and doctype across split head tags", async () => {
   const text =
     '<!doctype html>\n<html><head data-test="é"><script>site()</script></head><body>🎮</body></html>';
