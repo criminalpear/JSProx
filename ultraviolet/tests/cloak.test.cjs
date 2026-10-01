@@ -80,7 +80,7 @@ const noAutoCloak = () => {
     });
     const later = await gesture.newPage();
     await later.goto("http://localhost:8098");
-    assert.match(await later.locator("#uv-status").textContent(), /Click anywhere/);
+    assert.match(await later.locator("#auto-cloak-prompt").textContent(), /Click anywhere/);
     assert.equal(later.url(), "http://localhost:8098/");
     await later.mouse.click(600, 400, { noWaitAfter: true });
     await later.waitForURL("about:blank");

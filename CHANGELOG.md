@@ -2,7 +2,7 @@
 
 ## 2026-10-01
 
-- **Open in about:blank automatically** (Settings → Tab & privacy, on by default). Opening JSProx in a normal tab turns that tab into an about:blank wrapper right away, keeping any `#open=` link. The cloak helper is a popup: if Chrome blocks it on load, JSProx cloaks on the first click or key press instead; allowing popups for the site makes it immediate.
+- **Open in about:blank automatically** (Settings → Tab & privacy, on by default). Opening JSProx in a normal tab turns that tab into an about:blank wrapper right away, keeping any `#open=` link. The cloak helper is a popup: if Chrome blocks it on load, a full-page "Click anywhere to continue" prompt cloaks on the first click or key press, which needs no popup permission. Allowing popups for the site makes it immediate.
 - YouTube playback stopping after about a minute ("Something went wrong", `ump.spsrejectfailure`) is YouTube's stream protection rejecting the page's proof-of-origin check. Through the proxy the check's requests succeed (BotGuard script and `/api/jnn/v1/GenerateIT` return 200); YouTube rejects the result for both engines. JSProx does not attempt to defeat this check.
 
 ## 2026-09-30

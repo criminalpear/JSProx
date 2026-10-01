@@ -10,14 +10,22 @@ applySidebar();
 function autoCloak() {
   if (!settings.autoCloak || window.top !== window) return false;
   if (cloak(false, { quiet: true })) return true;
-  notify("Click anywhere to switch to about:blank. Allow popups for this site to do it automatically.");
+  // A full-page prompt so the first click is clearly for this, not a shortcut.
+  const prompt = document.createElement("button");
+  prompt.id = "auto-cloak-prompt";
+  prompt.textContent = "Click anywhere to continue";
+  prompt.style.cssText =
+    "position:fixed;inset:0;z-index:2147483647;border:0;background:var(--bg,#101714);color:var(--text,#dbece6);font:600 20px system-ui,sans-serif;cursor:pointer";
+  document.body.append(prompt);
+  prompt.focus();
   const onGesture = (event) => {
     removeEventListener("pointerdown", onGesture, true);
     removeEventListener("keydown", onGesture, true);
+    prompt.remove();
     if (!settings.autoCloak) return;
     event.preventDefault();
     event.stopPropagation();
-    cloak(false);
+    if (!cloak(false)) notify("Could not switch to about:blank. Use Cloaking in the sidebar.");
   };
   addEventListener("pointerdown", onGesture, true);
   addEventListener("keydown", onGesture, true);
