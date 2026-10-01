@@ -11,16 +11,52 @@ function autoCloak() {
   if (!settings.autoCloak || window.top !== window) return false;
   if (cloak(false, { quiet: true })) return true;
   // A full-page prompt so the first click is clearly for this, not a shortcut.
-  const prompt = document.createElement("button");
+  // A page cannot grant itself popup permission, so explain how to allow it;
+  // after that, later visits switch without any click.
+  const showSteps = !read("jsprox.popupStepsDismissed", false);
+  const prompt = document.createElement("div");
   prompt.id = "auto-cloak-prompt";
-  prompt.textContent = "Click anywhere to continue";
+  prompt.setAttribute("role", "dialog");
+  prompt.setAttribute("aria-label", "Open JSProx in about:blank");
   prompt.style.cssText =
-    "position:fixed;inset:0;z-index:2147483647;border:0;background:var(--bg,#101714);color:var(--text,#dbece6);font:600 20px system-ui,sans-serif;cursor:pointer";
+    "position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:24px;background:var(--bg,#101714);color:var(--text,#dbece6);font:16px/1.5 system-ui,sans-serif;cursor:pointer;text-align:center";
+  const box = document.createElement("div");
+  box.style.cssText = "max-width:520px";
+  const title = document.createElement("p");
+  title.style.cssText = "font-size:22px;font-weight:700;margin:0 0 12px";
+  title.textContent = "Click anywhere to continue";
+  box.append(title);
+  if (showSteps) {
+    const intro = document.createElement("p");
+    intro.textContent = "To open in about:blank automatically every time, allow pop-ups for this site once:";
+    const steps = document.createElement("ol");
+    steps.style.cssText = "text-align:left;margin:8px auto 16px;padding-left:22px";
+    for (const text of [
+      "Click the blocked pop-up icon at the right end of the address bar.",
+      "Choose “Always allow pop-ups and redirects from " + location.origin + "”.",
+      "Click Done, then click anywhere on this page.",
+    ]) {
+      const item = document.createElement("li");
+      item.textContent = text;
+      steps.append(item);
+    }
+    const dismiss = document.createElement("button");
+    dismiss.id = "auto-cloak-dismiss";
+    dismiss.textContent = "Continue and don't show these steps again";
+    dismiss.style.cssText =
+      "font:inherit;font-size:14px;background:none;border:0;color:var(--accent,#6ee7b7);text-decoration:underline;cursor:pointer";
+    box.append(intro, steps, dismiss);
+  }
+  prompt.append(box);
   document.body.append(prompt);
-  prompt.focus();
   const onGesture = (event) => {
     removeEventListener("pointerdown", onGesture, true);
     removeEventListener("keydown", onGesture, true);
+    if (event.target instanceof Element && event.target.closest("#auto-cloak-dismiss")) {
+      try {
+        write("jsprox.popupStepsDismissed", true);
+      } catch {}
+    }
     prompt.remove();
     if (!settings.autoCloak) return;
     event.preventDefault();

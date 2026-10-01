@@ -86,6 +86,17 @@ const noAutoCloak = () => {
     await later.waitForURL("about:blank");
     await later.frameLocator("iframe").locator("#home-address").waitFor();
     console.log("PASS blocked on-load popup falls back to cloaking on the first click");
+    // The prompt explains how to allow pop-ups; dismissing hides the steps next time.
+    const steps = await gesture.newPage();
+    await steps.goto("http://localhost:8098");
+    assert.match(await steps.locator("#auto-cloak-prompt").textContent(), /Always allow pop-ups/);
+    await steps.locator("#auto-cloak-dismiss").click({ noWaitAfter: true });
+    await steps.waitForURL("about:blank");
+    const again = await gesture.newPage();
+    await again.goto("http://localhost:8098");
+    assert.match(await again.locator("#auto-cloak-prompt").textContent(), /Click anywhere/);
+    assert.equal(await again.locator("#auto-cloak-dismiss").count(), 0);
+    console.log("PASS prompt shows pop-up steps until dismissed");
     await fresh.close();
     await gesture.close();
   } finally {
