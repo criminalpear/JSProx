@@ -95,7 +95,15 @@ server.on("listening", () => {
   console.log(`\thttp://${hostname()}:${address.port}`);
 });
 
-process.on("SIGINT", () => server.close(() => process.exit(0)));
-process.on("SIGTERM", () => server.close(() => process.exit(0)));
+// server.close() waits for every connection to end, and a browser's Wisp
+// WebSocket never does, so a SIGTERM (Linux, Docker, Cloudflare) could hang
+// forever. Close idle keep-alive sockets and force the exit after a grace period.
+function shutdown() {
+  server.close(() => process.exit(0));
+  server.closeIdleConnections();
+  setTimeout(() => process.exit(0), 2000).unref();
+}
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 server.listen({ port });

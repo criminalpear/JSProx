@@ -125,3 +125,28 @@ test("patched Scramjet bundle is served pre-compressed with a stable ETag", asyn
   );
   assert.equal(status, 304);
 });
+
+test("SIGTERM exits promptly even with an open Wisp WebSocket", async () => {
+  const shutdownPort = String(Number(port) + 1);
+  // Delivered from inside the process: on Windows an external SIGTERM is a hard kill.
+  const script = `
+    process.env.PORT = ${JSON.stringify(shutdownPort)};
+    await import(${JSON.stringify(new URL("../src/index.js", import.meta.url).href)});
+    await new Promise((r) => setTimeout(r, 1500));
+    const ws = new WebSocket("ws://localhost:${shutdownPort}/wisp/");
+    await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject; });
+    process.emit("SIGTERM");
+  `;
+  const started = Date.now();
+  const child = spawn(process.execPath, ["--input-type=module", "-e", script], {
+    cwd: root,
+    stdio: "ignore",
+    windowsHide: true,
+  });
+  const exited = once(child, "exit");
+  const timer = setTimeout(() => child.kill(), 15000);
+  const [code] = await exited;
+  clearTimeout(timer);
+  assert.equal(code, 0);
+  assert.ok(Date.now() - started < 8000, "took " + (Date.now() - started) + " ms");
+});
