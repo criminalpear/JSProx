@@ -4,6 +4,18 @@ const { once } = require("node:events");
 const path = require("node:path");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
+// The dashboard cloaks itself on open by default; these checks start from a
+// normal tab unless they opt in, so default the setting off when unset.
+const noAutoCloak = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("jsprox.settings") || "null");
+    if (location.pathname === "/" && (!saved || saved.autoCloak === undefined))
+      localStorage.setItem(
+        "jsprox.settings",
+        JSON.stringify({ ...(saved || { uiVersion: 3 }), autoCloak: false }),
+      );
+  } catch {}
+};
 const root = path.resolve(__dirname, "..");
 const port = process.env.TEST_PORT || "8092";
 const origin = `http://localhost:${port}`;
@@ -60,10 +72,12 @@ async function settings(page, changes) {
   await start();
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await context.addInitScript(noAutoCloak);
   const page = await context.newPage();
   const pageErrors = [];
   page.on("pageerror", (e) => pageErrors.push(e.message));
   const recoveryContext = await browser.newContext();
+  await recoveryContext.addInitScript(noAutoCloak);
   const recoveryPage = await recoveryContext.newPage();
   const startupErrors = [];
   recoveryPage.on("pageerror", (e) => startupErrors.push(e.message));

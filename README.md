@@ -76,7 +76,7 @@ browser tab
 - Themes, accent color, a background image (uploaded, or loaded from a link through the proxy), tab title and icon, and preference export/import.
 - Console: Ctrl + backtick or the toolbar button. It supports Await mode, history, and log filters, keeps at most 500 output rows, and runs only in the main proxied page, not nested game frames.
 - Connection panel: recent transport events, reconnect, switching transport, and a report that contains hostnames only.
-- Cloaking: opens JSProx inside an `about:blank` tab. This changes what the address bar shows. It does not hide network traffic or browser history.
+- Cloaking: opens JSProx inside an `about:blank` tab, automatically on open by default (turn it off under Settings → Tab & privacy; allow popups for the site so it needs no click). This changes what the address bar shows. It does not hide network traffic or browser history.
 - Xbox Cloud Gaming: when you are signed in on an `xbox.com/play` page, JSProx moves the page into the whole tab, so keyboard lock and fullscreen work.
 
 Sites with strong bot checks, Google sign-in inside frames, and some game hosts may still refuse to work. Anything beyond what the tests cover (below) needs testing on the actual site.

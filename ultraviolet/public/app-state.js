@@ -41,6 +41,7 @@ const defaults = {
   tabTitle: "JSProx",
   tabIcon: "default",
   rememberHistory: false,
+  autoCloak: true,
 };
 const engines = {
   duckduckgo: "https://duckduckgo.com/?q=%s",
@@ -91,7 +92,7 @@ function validSettings(value) {
   }
   if (Number.isFinite(Number(value.wallpaperOpacity)))
     s.wallpaperOpacity = Math.min(1, Math.max(0.1, Number(value.wallpaperOpacity)));
-  for (const key of ["autoReconnect", "rememberHistory"])
+  for (const key of ["autoReconnect", "rememberHistory", "autoCloak"])
     if (typeof value[key] === "boolean") s[key] = value[key];
   return s;
 }

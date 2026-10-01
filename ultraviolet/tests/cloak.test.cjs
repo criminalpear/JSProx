@@ -1,6 +1,18 @@
 const { chromium } = require("playwright");
 const { spawn } = require("node:child_process");
 const assert = require("node:assert/strict");
+// The dashboard cloaks itself on open by default; these checks start from a
+// normal tab unless they opt in, so default the setting off when unset.
+const noAutoCloak = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem("jsprox.settings") || "null");
+    if (location.pathname === "/" && (!saved || saved.autoCloak === undefined))
+      localStorage.setItem(
+        "jsprox.settings",
+        JSON.stringify({ ...(saved || { uiVersion: 3 }), autoCloak: false }),
+      );
+  } catch {}
+};
 (async () => {
   const server = spawn(process.execPath, ["src/index.js"], {
     env: { ...process.env, PORT: "8098" },
@@ -11,6 +23,7 @@ const assert = require("node:assert/strict");
   try {
     await new Promise((r) => setTimeout(r, 1000));
     const context = await browser.newContext();
+    await context.addInitScript(noAutoCloak);
     const page = await context.newPage();
     await page.goto("http://localhost:8098");
     await page.evaluate(() => {
@@ -41,6 +54,40 @@ const assert = require("node:assert/strict");
     assert.equal(page.url(), "http://localhost:8098/");
     assert.match(await page.locator("#uv-status").textContent(), /Allow popups/);
     console.log("PASS blocked popup preserves original");
+
+    // Default setting: opening JSProx turns the tab into about:blank right away,
+    // carrying a #open= link along.
+    const fresh = await browser.newContext();
+    const opened = await fresh.newPage();
+    await opened.goto("http://localhost:8098/#open=" + encodeURIComponent("https://example.com/"));
+    await opened.waitForURL("about:blank");
+    const wrapped = opened.frameLocator("iframe");
+    await wrapped.locator("#home-address").waitFor();
+    assert.match(await opened.locator("iframe").getAttribute("src"), /#open=https%3A%2F%2Fexample\.com/);
+    await opened.waitForTimeout(300);
+    assert.equal(fresh.pages().length, 1);
+    console.log("PASS auto about:blank on open keeps the start link and closes its helper");
+
+    // Popup blocked on load: cloak on the first click instead.
+    const gesture = await browser.newContext();
+    await gesture.addInitScript(() => {
+      if (location.pathname !== "/" || window.top !== window) return;
+      const open = window.open;
+      window.open = function () {
+        window.open = open; // only the on-load attempt is blocked
+        return null;
+      };
+    });
+    const later = await gesture.newPage();
+    await later.goto("http://localhost:8098");
+    assert.match(await later.locator("#uv-status").textContent(), /Click anywhere/);
+    assert.equal(later.url(), "http://localhost:8098/");
+    await later.mouse.click(600, 400, { noWaitAfter: true });
+    await later.waitForURL("about:blank");
+    await later.frameLocator("iframe").locator("#home-address").waitFor();
+    console.log("PASS blocked on-load popup falls back to cloaking on the first click");
+    await fresh.close();
+    await gesture.close();
   } finally {
     server.kill();
     await browser.close();

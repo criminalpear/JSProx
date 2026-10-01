@@ -216,11 +216,16 @@ $("copy-url").onclick = async () => {
   }
 };
 document.querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $(b.dataset.close).close()));
-function cloak(newTab) {
+function cloak(newTab, { quiet = false } = {}) {
+  // Carry the open site along, or a not-yet-loaded #open= start link.
   const src =
     location.origin +
     "/" +
-    (document.body.classList.contains("loaded") ? "#open=" + encodeURIComponent(currentUrl()) : "");
+    (document.body.classList.contains("loaded")
+      ? "#open=" + encodeURIComponent(currentUrl())
+      : /(^|&)open=/.test(location.hash.slice(1))
+        ? location.hash
+        : "");
   const title = settings.tabTitle,
     iconUrl = document.querySelector("link[rel=icon]").href;
   // A same-window about:blank navigation destroys this script. Let a temporary
@@ -232,7 +237,7 @@ function cloak(newTab) {
     }
     const helper = window.open("about:blank", "_blank", "popup,width=320,height=160");
     if (!helper) {
-      notify("Allow popups to cloak this tab. Your current page was kept.");
+      if (!quiet) notify("Allow popups to cloak this tab. Your current page was kept.");
       return null;
     }
     helper.document.title = "Preparing current-tab cloak";

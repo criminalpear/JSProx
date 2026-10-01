@@ -231,7 +231,7 @@ $("settings-form").onsubmit = async (e) => {
     return;
   }
   const data = Object.fromEntries(new FormData(form));
-  for (const key of ["autoReconnect", "rememberHistory"]) data[key] = form.elements[key].checked;
+  for (const key of ["autoReconnect", "rememberHistory", "autoCloak"]) data[key] = form.elements[key].checked;
   data.wallpaper = draftWallpaper;
   data.wallpaperSource = draftWallpaperSource;
   const next = validSettings(data);
